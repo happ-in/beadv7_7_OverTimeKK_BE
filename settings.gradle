@@ -1,2 +1,0 @@
-rootProject.name = 'kdt'
-include 'common', 'user-service', 'order-service', 'performance-service'
