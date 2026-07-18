@@ -10,7 +10,7 @@ public class SettlementService {
 
     private final SettlementLogRepository settlementLogRepository;
 
-    public void settle(Long perfomanceInfoId) {
+    public void settle(Long performanceInfoId) {
         // TODO: performance-service에서 공연완료 이벤트/호출을 받아 정산 생성
     }
 }

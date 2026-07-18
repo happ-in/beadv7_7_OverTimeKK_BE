@@ -13,7 +13,7 @@ public class Performance {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long perfomanceInfoId;
+    private Long performanceInfoId;
 
     private String title;
     private String description;

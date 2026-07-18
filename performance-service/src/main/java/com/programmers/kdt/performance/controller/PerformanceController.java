@@ -19,8 +19,8 @@ public class PerformanceController {
         return performanceService.registerPerformance(request);
     }
 
-    @PostMapping("/{perfomanceInfoId}/cancel")
-    public void cancel(@PathVariable Long perfomanceInfoId) {
-        performanceService.cancelPerformance(perfomanceInfoId);
+    @PostMapping("/{performanceInfoId}/cancel")
+    public void cancel(@PathVariable Long performanceInfoId) {
+        performanceService.cancelPerformance(performanceInfoId);
     }
 }

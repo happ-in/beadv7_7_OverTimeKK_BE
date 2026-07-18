@@ -14,7 +14,7 @@ public class Ticket {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long ticketId;
 
-    private Long perfomanceInfoId;
+    private Long performanceInfoId;
     private Long sessionNum;
     private Long stadiumId;
     private String zone;
