@@ -1,4 +1,4 @@
-package com.programmers.kdt.ticket.entity;
+package com.programmers.kdt.standby.entity;
 
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -21,7 +21,7 @@ public class Standby {
     // user-service의 User를 ID로만 참조
     private Long userId;
 
-    private Long perfomanceInfoId;
+    private Long performanceInfoId;
     private Long sessionNum;
 
     private String zone1;

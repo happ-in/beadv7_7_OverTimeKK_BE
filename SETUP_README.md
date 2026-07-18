@@ -82,7 +82,7 @@ REST 호출을 하는 자리입니다. 지금은 `existsUser()`가 TODO 상태�
 
 - `Payment`에 `paymentStatus`(`PaymentStatus` enum: SUCCESS/FAILED/CANCELLED) 필드 추가
 - `Performance`에 `ticketOpenAt` 필드 추가 — ERD엔 LocalDate로만 보였는데, "티켓오픈시간"이라는 이름상 분·초까지 필요할 것 같아 **LocalDateTime으로 지정해뒀습니다. 팀 확인 필요**
-- 신규 테이블 `PerformanceSeatPrice` 추가 — 같은 홀을 여러 공연이 같이 쓸 때, 공연마다 좌석 가격을 다르게 매길 수 있도록 만든 테이블 (`perfomanceInfoId` + `hallId` + `zone` 조합별 가격)
+- 신규 테이블 `PerformanceSeatPrice` 추가 — 같은 홀을 여러 공연이 같이 쓸 때, 공연마다 좌석 가격을 다르게 매길 수 있도록 만든 테이블 (`performanceInfoId` + `hallId` + `zone` 조합별 가격)
 - **아직 반영 안 한 것**: ERD에 있던 `File_path`(Untitled2) 테이블 — 필드가 전부 `Field`, `Field2`... 같은 placeholder라 실제로 뭘 저장하는 테이블인지 확정이 안 돼서 스켈레톤에 안 넣었습니다. 팀에서 용도(예: 이미지 첨부 경로?)와 필드를 정하면 알려주세요, 바로 추가해드릴게요
 
 ## 8. 나중에 EC2 배포 시 (참고, 지금 당장은 안 해도 됨)

@@ -5,5 +5,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface PerformanceSessionRepository extends JpaRepository<PerformanceSession, Long> {
-    List<PerformanceSession> findByPerfomanceInfoId(Long perfomanceInfoId);
+    List<PerformanceSession> findByPerformanceInfoId(Long performanceInfoId);
 }

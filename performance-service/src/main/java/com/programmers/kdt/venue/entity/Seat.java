@@ -18,5 +18,4 @@ public class Seat {
     private String zone;
     private String seatRow;
     private String seatNum;
-    private Long price;
 }

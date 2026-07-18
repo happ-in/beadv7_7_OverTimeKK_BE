@@ -1,7 +1,7 @@
 package com.programmers.kdt.ticket.service;
 
 import com.programmers.kdt.ticket.dto.CreateStandbyResponse;
-import com.programmers.kdt.ticket.repository.StandbyRepository;
+import com.programmers.kdt.standby.repository.StandbyRepository;
 import com.programmers.kdt.ticket.repository.TicketRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

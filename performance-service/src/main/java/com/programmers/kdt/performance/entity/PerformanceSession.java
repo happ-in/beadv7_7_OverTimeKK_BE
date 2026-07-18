@@ -15,7 +15,7 @@ public class PerformanceSession {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long sessionNum;
 
-    private Long perfomanceInfoId;
+    private Long performanceInfoId;
     private String actor;
     private LocalDate performanceDate;
     private LocalTime performanceStartTm;

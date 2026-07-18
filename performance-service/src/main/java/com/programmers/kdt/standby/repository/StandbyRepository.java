@@ -1,6 +1,6 @@
-package com.programmers.kdt.ticket.repository;
+package com.programmers.kdt.standby.repository;
 
-import com.programmers.kdt.ticket.entity.Standby;
+import com.programmers.kdt.standby.entity.Standby;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
