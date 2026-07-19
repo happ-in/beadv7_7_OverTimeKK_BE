@@ -1,7 +1,7 @@
 package com.programmers.kdt.performance.dto;
 
 public record RegisterPerformanceResponse(
-        Long performanceInfoId,
+        Long performanceId,
         String title
 ) {
 }

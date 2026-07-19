@@ -1,25 +1,41 @@
 package com.programmers.kdt.performance.entity;
 
-import jakarta.persistence.*;
+import com.programmers.kdt.common.entity.BaseTimeEntity;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Column;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * 공연장 좌석 가격 (ERD: Performance_seat_price)
- * Seat에 직접 가격을 두면 같은 홀을 쓰는 모든 공연의 좌석가가 동일해지는 문제가 있어서,
- * 공연(performanceInfoId) + 홀(hallId) + 구역(zone) 조합별로 가격을 따로 매기기 위해 추가된 테이블입니다.
- */
 @Entity
+@Table(uniqueConstraints = @UniqueConstraint(
+        name = "uk_seat_price_performance_zone",
+        columnNames = {"performance_id", "zone"}))
 @Getter
 @NoArgsConstructor
-public class PerformanceSeatPrice {
+public class PerformanceSeatPrice extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long performanceInfoId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "performance_id", nullable = false)
+    private Performance performance;
+
+    @Column(nullable = false)
     private Long hallId;
+
+    @Column(nullable = false)
     private String zone;
+
+    @Column(nullable = false)
     private Long price;
 }

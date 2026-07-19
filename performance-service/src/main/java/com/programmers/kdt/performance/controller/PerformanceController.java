@@ -5,7 +5,11 @@ import com.programmers.kdt.performance.dto.RegisterPerformanceResponse;
 import com.programmers.kdt.performance.service.PerformanceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/performances")
@@ -19,8 +23,8 @@ public class PerformanceController {
         return performanceService.registerPerformance(request);
     }
 
-    @PostMapping("/{performanceInfoId}/cancel")
-    public void cancel(@PathVariable Long performanceInfoId) {
-        performanceService.cancelPerformance(performanceInfoId);
+    @PostMapping("/{performanceId}/cancel")
+    public void cancel(@PathVariable Long performanceId) {
+        performanceService.cancelPerformance(performanceId);
     }
 }
