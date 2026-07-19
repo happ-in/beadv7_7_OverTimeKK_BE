@@ -17,7 +17,7 @@ public class PerformanceService {
         return null;
     }
 
-    public void cancelPerformance(Long performanceInfoId) {
+    public void cancelPerformance(Long performanceId) {
         // TODO: order-service에 REST로 취소/환불 요청 (OrderClient 필요)
     }
 }

@@ -3,7 +3,10 @@ package com.programmers.kdt.ticket.controller;
 import com.programmers.kdt.ticket.dto.CreateStandbyResponse;
 import com.programmers.kdt.ticket.service.TicketService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/tickets")

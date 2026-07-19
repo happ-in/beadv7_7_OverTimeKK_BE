@@ -1,30 +1,46 @@
 package com.programmers.kdt.ticket.entity;
 
-import jakarta.persistence.*;
+import com.programmers.kdt.common.entity.BaseTimeEntity;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import java.time.LocalDateTime;
+import org.hibernate.annotations.ColumnDefault;
 
 @Entity
 @Getter
 @NoArgsConstructor
-public class Ticket {
+public class Ticket extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long ticketId;
 
-    private Long performanceInfoId;
+    @Column(nullable = false)
+    private Long performanceId;
+
+    @Column(nullable = false)
     private Long sessionNum;
-    private Long stadiumId;
+
+    @Column(nullable = false)
     private String zone;
+
+    @Column(nullable = false)
     private String seatRow;
+
+    @Column(nullable = false)
     private String seatNum;
+
+    @Column(nullable = false)
     private Long price;
 
     @Enumerated(EnumType.STRING)
-    private TicketStatus ticketStatus;
-
-    private Long heldByUserId;
-    private LocalDateTime holdExpireAt;
+    @Column(nullable = false)
+    @ColumnDefault("'AVAILABLE'")
+    private TicketStatus ticketStatus = TicketStatus.AVAILABLE;
 }
