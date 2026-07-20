@@ -1,10 +1,15 @@
 package com.programmers.kdt.user.service;
 
-import com.programmers.kdt.user.dto.SignUpUserRequest;
+import com.programmers.kdt.common.exception.BusinessException;
+import com.programmers.kdt.user.dto.SignUpIndividualRequest;
 import com.programmers.kdt.user.dto.SignUpUserResponse;
+import com.programmers.kdt.user.entity.User;
+import com.programmers.kdt.user.exception.UserErrorCode;
 import com.programmers.kdt.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 인터페이스 없이 클래스 하나로 (팀 요청: MVC 단순화)
@@ -14,10 +19,26 @@ import org.springframework.stereotype.Service;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public SignUpUserResponse signUp(SignUpUserRequest request) {
-        // TODO: 이메일 중복 체크, 비밀번호 암호화 등
-        return null;
+    @Transactional
+    public SignUpUserResponse signUpIndividual(SignUpIndividualRequest request) {
+        validateDuplicate(request.username(), request.email());
+
+        String encodedPassword = passwordEncoder.encode(request.password());
+        User user = User.signUpIndividual(request.username(), request.email(), encodedPassword);
+        User saved = userRepository.save(user);
+
+        return SignUpUserResponse.from(saved);
+    }
+
+    private void validateDuplicate(String username, String email) {
+        if (userRepository.existsByUsername(username)) {
+            throw new BusinessException(UserErrorCode.DUPLICATE_USERNAME);
+        }
+        if (userRepository.existsByEmail(email)) {
+            throw new BusinessException(UserErrorCode.DUPLICATE_EMAIL);
+        }
     }
 
     // TODO: 로그인, 탈퇴, 조회 기능 추가

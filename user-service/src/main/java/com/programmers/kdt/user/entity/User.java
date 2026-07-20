@@ -20,6 +20,7 @@ public class User {
 
     private String username;
     private String email;
+    private String password;
 
     @Enumerated(EnumType.STRING)
     private Role userType;
@@ -31,5 +32,17 @@ public class User {
     @Enumerated(EnumType.STRING)
     private UserStatus status;
 
-    // TODO: 정적 팩토리 메서드(signUp), 비즈니스 메서드(withdraw)
+    private User(String username, String email, String encodedPassword, Role userType) {
+        this.username = username;
+        this.email = email;
+        this.password = encodedPassword;
+        this.userType = userType;
+        this.status = UserStatus.ACTIVE;
+    }
+
+    public static User signUpIndividual(String username, String email, String encodedPassword) {
+        return new User(username, email, encodedPassword, Role.INDIVIDUAL);
+    }
+
+    // TODO: 비즈니스 메서드(withdraw)
 }
