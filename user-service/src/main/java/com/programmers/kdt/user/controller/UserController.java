@@ -1,6 +1,6 @@
 package com.programmers.kdt.user.controller;
 
-import com.programmers.kdt.user.dto.SignUpUserRequest;
+import com.programmers.kdt.user.dto.SignUpIndividualRequest;
 import com.programmers.kdt.user.dto.SignUpUserResponse;
 import com.programmers.kdt.user.service.UserService;
 import jakarta.validation.Valid;
@@ -14,9 +14,9 @@ public class UserController {
 
     private final UserService userService;
 
-    @PostMapping
-    public SignUpUserResponse signUp(@Valid @RequestBody SignUpUserRequest request) {
-        return userService.signUp(request);
+    @PostMapping("/signup/individual")
+    public SignUpUserResponse signUpIndividual(@Valid @RequestBody SignUpIndividualRequest request) {
+        return userService.signUpIndividual(request);
     }
 
     /**
