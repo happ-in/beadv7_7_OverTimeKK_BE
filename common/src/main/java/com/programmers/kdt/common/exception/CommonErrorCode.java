@@ -4,8 +4,8 @@ import org.springframework.http.HttpStatus;
 
 public enum CommonErrorCode implements ErrorCode {
     BAD_REQUEST(HttpStatus.BAD_REQUEST, "C400_1", "잘못된 요청입니다."),
-    INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "C400_2", "입력값이 올바르지 않습니다."),
-    VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "C400_3", "요청 데이터 검증에 실패했습니다."),
+    INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "C400_2", "{0} 입력값이 올바르지 않습니다."),
+    VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "C400_3", "{0} 요청 데이터 검증에 실패했습니다."),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "C401_1", "인증이 필요합니다."),
     INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "C401_2", "유효하지 않은 인증 정보입니다."),
     FORBIDDEN(HttpStatus.FORBIDDEN, "C403_1", "접근 권한이 없습니다."),
