@@ -1,5 +1,7 @@
 package com.programmers.kdt.order.entity;
 
+import com.programmers.kdt.common.exception.BusinessException;
+import com.programmers.kdt.order.exception.OrderErrorCode;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -26,7 +28,7 @@ public class OrderItem {
     private Long ticketPrice;
 
     private OrderItem(Long ticketId, Long ticketPrice){
-        // 검증로직 추가 예정
+        validateTicketPrice(ticketPrice);
         this.ticketId = ticketId;
         this.ticketPrice = ticketPrice;
     }
@@ -36,9 +38,14 @@ public class OrderItem {
 
     }
 
-    public void assignOrder(Order order){
-        this.order = order;
+    private void validateTicketPrice(Long ticketPrice){
+        if(ticketPrice == null || ticketPrice <=0){
+            throw new BusinessException(OrderErrorCode.INVALID_ORDER_AMOUNT);
+        }
     }
 
+    void assignOrder(Order order){
+        this.order = order;
+    }
 
 }

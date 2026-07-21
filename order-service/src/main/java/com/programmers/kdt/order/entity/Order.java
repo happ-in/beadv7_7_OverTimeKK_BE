@@ -2,7 +2,7 @@ package com.programmers.kdt.order.entity;
 
 import com.programmers.kdt.common.entity.BaseTimeEntity;
 import com.programmers.kdt.common.exception.BusinessException;
-import com.programmers.kdt.common.exception.OrderErrorCode;
+import com.programmers.kdt.order.exception.OrderErrorCode;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -43,9 +43,8 @@ public class Order extends BaseTimeEntity {
         this.userId = userId;
         this.orderStatus = OrderStatus.PENDING;
         this.orderDate = LocalDate.now();
-
         for(OrderItem item : items){
-            addOrderItem(item);
+            assignOrderItem(item);
         }
         this.totalAmount = calculateAmount();
     }
@@ -58,17 +57,17 @@ public class Order extends BaseTimeEntity {
     // 주문 검증
     private void validateItems(List<OrderItem> items){
         if(items == null || items.isEmpty()){
-            throw new IllegalStateException("주문할 상품이 없습니다.");
+            throw new BusinessException(OrderErrorCode.ORDER_ITEMS_REQUIRED);
+        }
+        if(items.stream().anyMatch(item -> item==null)){
+            throw new BusinessException(OrderErrorCode.ORDER_ITEMS_REQUIRED);
         }
     }
 
     // 주문항목 추가
-    public void addOrderItem(OrderItem item){
+    private void assignOrderItem(OrderItem item){
         this.items.add(item);
-        // 주문과 주문항목 연결
-        if(item.getOrder() != this){
-            item.assignOrder(this);
-        }
+        item.assignOrder(this);
     }
 
     // 총 주문 금액 계산
@@ -81,6 +80,9 @@ public class Order extends BaseTimeEntity {
 
     // 주문 완료 PENDING -> COMPLETED
     public void complete(){
+        if(orderStatus == OrderStatus.COMPLETED){
+            return; // 이미 주문 완료된 상태, 중복 무시
+        }
         if(orderStatus != OrderStatus.PENDING){
             throw new BusinessException(OrderErrorCode.ORDER_NOT_PENDING);
         }
@@ -89,6 +91,9 @@ public class Order extends BaseTimeEntity {
 
     // 주문 만료 PENDING -> EXPIRED
     public void expire(){
+        if(orderStatus == OrderStatus.EXPIRED){
+            return; // 이미 주문 만료된 상태, 중복 무시
+        }
         if(orderStatus != OrderStatus.PENDING){
             throw new BusinessException(OrderErrorCode.ORDER_NOT_PENDING);
         }
@@ -97,6 +102,9 @@ public class Order extends BaseTimeEntity {
 
     // 주문 취소 COMPLETED -> CANCELED
     public void cancel(){
+        if(orderStatus == OrderStatus.CANCELLED){
+            return; // 이미 주문 취소된 상태, 중복 무시
+        }
         if(orderStatus != OrderStatus.COMPLETED){
             throw new BusinessException(OrderErrorCode.ORDER_NOT_COMPLETED);
         }
