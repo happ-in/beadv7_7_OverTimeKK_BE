@@ -12,11 +12,12 @@ import java.util.List;
 
 @RequiredArgsConstructor
 @RestController
-@RequestMapping("/performance")
+@RequestMapping("/api/performance")
 public class PerformanceSessionController {
 
     private final PerformanceSessionService performanceSessionService;
 
+    // TODO : 회차정보 작성도 회원 인증(판매자 검증) 필요.
     @PostMapping("/session")
     public ApiResponse<?> registerPerformanceSession(@Valid @RequestBody PerformanceSessionRequest request) {
         PerformanceSessionResponse response = performanceSessionService.registerPerformanceSession(request);

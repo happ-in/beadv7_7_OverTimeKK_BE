@@ -1,18 +1,19 @@
 package com.programmers.kdt.performance.service;
 
 import com.programmers.kdt.common.exception.BusinessException;
-import com.programmers.kdt.performance.exception.PerformanceErrorCode;
 import com.programmers.kdt.performance.dto.PerformanceSessionRequest;
 import com.programmers.kdt.performance.dto.PerformanceSessionResponse;
 import com.programmers.kdt.performance.entity.Performance;
 import com.programmers.kdt.performance.entity.PerformanceSession;
 import com.programmers.kdt.performance.entity.PerformanceSessionId;
+import com.programmers.kdt.performance.exception.PerformanceErrorCode;
 import com.programmers.kdt.performance.repository.PerformanceRepository;
 import com.programmers.kdt.performance.repository.PerformanceSessionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,7 +27,7 @@ public class PerformanceSessionService {
     @Transactional
     public PerformanceSessionResponse registerPerformanceSession(PerformanceSessionRequest request) {
         Performance performance = getPerformance(request.performanceId());
-
+        // TODO : 인증되어 들어온 판매자가 performance의 seller_id와 일치하는 검증 로직 필요
         PerformanceSession session = sessionRepository.save(request.toEntity(performance));
 
         return PerformanceSessionResponse.from(session);
@@ -39,22 +40,27 @@ public class PerformanceSessionService {
         return PerformanceSessionResponse.from(session);
     }
 
-    // TODO: 공연 시작 여부를 검증한 후 공연 회차를 삭제하도록 구현
     @Transactional
     public void deletePerformanceSession(Long sessionNum, Long performanceId) {
-        PerformanceSession session = getPerformanceSession(new PerformanceSessionId(sessionNum, performanceId));
-        throw new UnsupportedOperationException("공연 회차별 삭제 구현 예정");
+        PerformanceSessionId sessionId = new PerformanceSessionId(sessionNum, performanceId);
+        PerformanceSession session = getPerformanceSession(sessionId);
+        Performance performance = getPerformance(performanceId);
+        validDeleteSessionTime(performance.getTicketOpenAt(), session.getPerformanceStartAt());
+        sessionRepository.deleteById(sessionId);
     }
 
-    // TODO : 공연에 속한 모든 공연 회차 삭제 구현
     @Transactional
     public void deletePerformanceSessions(Long performanceId) {
-        throw new UnsupportedOperationException("공연별 회차 전체 삭제 구현 예정");
+        Performance performance = getPerformance(performanceId);
+        validateDeletableBeforeTicketOpen(performance.getTicketOpenAt());
+        sessionRepository.deleteByPerformanceSessionId_PerformanceId(performanceId);
     }
 
     public List<PerformanceSessionResponse> findAllPerformanceSessionsByPerformanceId(Long performanceId) {
-        List<PerformanceSession> sessions = sessionRepository.findByPerformanceSessionId_PerformanceId(performanceId)
-                .orElseThrow(() -> new BusinessException(PerformanceErrorCode.PERFORMANCE_SESSION_NOT_FOUND));
+        List<PerformanceSession> sessions = sessionRepository.findByPerformanceSessionId_PerformanceId(performanceId);
+        if (sessions.isEmpty()) {
+            throw new BusinessException(PerformanceErrorCode.PERFORMANCE_SESSION_NOT_FOUND);
+        }
 
         List<PerformanceSessionResponse> responses = new ArrayList<>(sessions.size());
         for (PerformanceSession session : sessions) {
@@ -81,5 +87,21 @@ public class PerformanceSessionService {
         );
     }
 
+    private void validDeleteSessionTime(LocalDateTime ticketOpenAt, LocalDateTime performanceStartAt) {
+        validateDeletableBeforeTicketOpen(ticketOpenAt);
+        validateDeletableBeforePerformanceStart(performanceStartAt);
 
+    }
+
+    private static void validateDeletableBeforePerformanceStart(LocalDateTime performanceStartAt) {
+        if (performanceStartAt.isBefore(LocalDateTime.now())) {
+            throw new BusinessException(PerformanceErrorCode.PERFORMANCE_SESSION_UPDATE_NOT_ALLOWED_AFTER_PERFORMANCE_START, "삭제");
+        }
+    }
+
+    private static void validateDeletableBeforeTicketOpen(LocalDateTime ticketOpenAt) {
+        if (ticketOpenAt.isBefore(LocalDateTime.now())) {
+            throw new BusinessException(PerformanceErrorCode.PERFORMANCE_SESSION_UPDATE_NOT_ALLOWED_AFTER_TICKET_OPEN, "삭제");
+        }
+    }
 }
