@@ -1,6 +1,8 @@
 package com.programmers.kdt.payment.entity;
 
 import com.programmers.kdt.common.entity.BaseTimeEntity;
+import com.programmers.kdt.common.exception.BusinessException;
+import com.programmers.kdt.payment.exception.PaymentErrorCode;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -27,10 +29,10 @@ public class PaymentRefund extends BaseTimeEntity {
 
     public static PaymentRefund create(Long paymentId, Long refundAmount, String reason) {
         if (paymentId == null) {
-            throw new IllegalArgumentException("결제가 존재하지 않습니다.");
+            throw new BusinessException(PaymentErrorCode.MISSING_PAYMENT_ID);
         }
         if (refundAmount == null || refundAmount <= 0) {
-            throw new IllegalArgumentException("환불 금액은 0원보다 커야 합니다.");
+            throw new BusinessException(PaymentErrorCode.ZERO_REFUND_AMOUNT, refundAmount);
         }
         PaymentRefund refund = new PaymentRefund();
         refund.paymentId = paymentId;

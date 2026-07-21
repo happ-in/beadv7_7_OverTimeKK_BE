@@ -1,7 +1,6 @@
 package com.programmers.kdt.payment.service;
 
 import com.programmers.kdt.common.exception.BusinessException;
-import com.programmers.kdt.common.exception.CommonErrorCode;
 import com.programmers.kdt.order.entity.Order;
 import com.programmers.kdt.order.repository.OrderRepository;
 import com.programmers.kdt.payment.client.*;
@@ -32,11 +31,10 @@ public class PaymentService {
     @Transactional
     public CreatePaymentResponse pay(CreatePaymentRequest request) {
         Order order = orderRepository.findById(request.orderId())
-                .orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND));
+                .orElseThrow(() -> new BusinessException(PaymentErrorCode.ORDER_NOT_FOUND));
 
-        // orderId 중복 검증
         if (paymentRepository.existsByOrderId(request.orderId())) {
-            throw new BusinessException(PaymentErrorCode.PAYMENT_ALREADY_EXISTS); // 추후에 409 CONFLICT로 응답 수정
+            throw new BusinessException(PaymentErrorCode.PAYMENT_ALREADY_EXISTS);
         }
 
         // 주문 금액이 같은지 판별
@@ -73,11 +71,15 @@ public class PaymentService {
 
         // 상태 검증
         if (payment.getPaymentStatus() != PaymentStatus.READY) {
-            throw new BusinessException(PaymentErrorCode.INVALID_PAYMENT_STATUS);
+            throw new BusinessException(PaymentErrorCode.INVALID_PAYMENT_STATUS, payment.getPaymentStatus());
         }
 
-        PgApproveResult approveResult = pgClient.approve(
-                new PgApproveCommand(payment.getPaymentKey(), payment.getAmount()));
+        PgApproveResult approveResult;
+        try {
+            approveResult = pgClient.approve(new PgApproveCommand(payment.getPaymentKey(), payment.getAmount()));
+        } catch (Exception e) {
+            throw new BusinessException(PaymentErrorCode.PG_REQUEST_FAILED);
+        }
 
         // 결제 요청 성공 & 실패 분기
         if (approveResult.success()) {
@@ -94,10 +96,16 @@ public class PaymentService {
     public FailPaymentResponse fail(Long paymentId, FailPaymentRequest request) {
         Payment payment = getPayment(paymentId);
 
+        boolean alreadyFailed = payment.getPaymentStatus() == PaymentStatus.FAILED;
         payment.fail();
 
-        if (payment.getPaymentKey() != null) {
-            pgClient.cancel(new PgCancelCommand(payment.getPaymentKey(), payment.getAmount(), request.reason()));
+        if (!alreadyFailed && payment.getPaymentKey() != null) {
+            try {
+                pgClient.cancel(new PgCancelCommand(payment.getPaymentKey(), payment.getAmount(), request.reason()));
+            } catch (Exception e) {
+                throw new BusinessException(PaymentErrorCode.PG_REQUEST_FAILED);
+            }
+
         }
 
         return FailPaymentResponse.from(payment);
@@ -118,11 +126,7 @@ public class PaymentService {
         // 환불금 계산
         Long refundAmount = payment.getAmount() - payment.getRefundedAmount();
 
-        try {
-            payment.cancel();
-        } catch (IllegalStateException e) {
-            throw new BusinessException(PaymentErrorCode.INVALID_PAYMENT_STATUS);
-        }
+        payment.cancel();
 
         try {
             pgClient.cancel(new PgCancelCommand(payment.getPaymentKey(), refundAmount, request.reason()));
@@ -140,13 +144,7 @@ public class PaymentService {
     public PartialCancelPaymentResponse partialCancel(Long paymentId, PartialCancelPaymentRequest request) {
         Payment payment = getPayment(paymentId);
 
-        try {
-            payment.partialCancel(request.amount());
-        } catch (IllegalStateException e) {
-            throw new BusinessException(PaymentErrorCode.INVALID_PAYMENT_STATUS);
-        } catch (IllegalArgumentException e) {
-            throw new BusinessException(PaymentErrorCode.INVALID_PAYMENT_AMOUNT);
-        }
+        payment.partialCancel(request.amount());
 
         try {
             pgClient.cancel(new PgCancelCommand(payment.getPaymentKey(), request.amount(), request.reason()));
