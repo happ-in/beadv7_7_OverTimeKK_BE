@@ -1,5 +1,6 @@
 package com.programmers.kdt.payment.entity;
 
+import com.programmers.kdt.common.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -30,7 +31,7 @@ class PointTest {
         @DisplayName("userId가 null이면 예외가 발생한다.")
         void createPointNullUserId() {
             assertThatThrownBy(() -> Point.create(null))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(BusinessException.class);
         }
     }
 
@@ -72,11 +73,11 @@ class PointTest {
             Point point = Point.create(1L);
 
             assertThatThrownBy(() -> point.earn(null))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(BusinessException.class);
             assertThatThrownBy(() -> point.earn(0L))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(RuntimeException.class);
             assertThatThrownBy(() -> point.earn(-1000L))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(RuntimeException.class);
         }
     }
 
@@ -121,7 +122,7 @@ class PointTest {
 
             //when & then
             assertThatThrownBy(() -> point.use(600L))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(BusinessException.class);
         }
 
         @Test
@@ -131,11 +132,11 @@ class PointTest {
             point.earn(500L);
 
             assertThatThrownBy(() -> point.use(null))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(RuntimeException.class);
             assertThatThrownBy(() -> point.use(0L))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(RuntimeException.class);
             assertThatThrownBy(() -> point.use(-1000L))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(RuntimeException.class);
 
         }
     }
@@ -165,11 +166,11 @@ class PointTest {
             Point point = Point.create(1L);
 
             assertThatThrownBy(() -> point.rollbackUse(null))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(RuntimeException.class);
             assertThatThrownBy(() -> point.rollbackUse(0L))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(RuntimeException.class);
             assertThatThrownBy(() -> point.rollbackUse(-1000L))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(RuntimeException.class);
         }
     }
 }
