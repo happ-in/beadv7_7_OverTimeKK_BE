@@ -1,7 +1,7 @@
 package com.programmers.kdt.performance.service;
 
 import com.programmers.kdt.common.exception.BusinessException;
-import com.programmers.kdt.performance.common.exception.PerformanceErrorCode;
+import com.programmers.kdt.performance.exception.PerformanceErrorCode;
 import com.programmers.kdt.performance.dto.PerformanceSessionRequest;
 import com.programmers.kdt.performance.dto.PerformanceSessionResponse;
 import com.programmers.kdt.performance.entity.Performance;
