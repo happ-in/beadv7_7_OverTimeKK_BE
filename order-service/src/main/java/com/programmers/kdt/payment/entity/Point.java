@@ -20,6 +20,10 @@ public class Point extends BaseTimeEntity {
     @Column(name = "total_point", nullable = false)
     private Long totalPoint;
 
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
+
     public static Point create(Long userId) {
         if (userId == null) {
             throw new BusinessException(PointErrorCode.MISSING_USER_ID);
@@ -43,6 +47,8 @@ public class Point extends BaseTimeEntity {
         if (this.totalPoint < amount) {
             throw new BusinessException(PointErrorCode.INSUFFICIENT_POINT, this.totalPoint, amount);
         }
+
+
         this.totalPoint -= amount;
     }
 

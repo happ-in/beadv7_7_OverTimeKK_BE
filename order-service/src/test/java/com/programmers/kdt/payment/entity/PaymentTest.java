@@ -137,13 +137,13 @@ class PaymentTest {
 
         @Test
         @DisplayName("PAID 상태에서 취소하면 CANCELLED로 전이되고 refundedAmount가 amount와 같아진다.")
-        void cancelPayment() {
+        void refundPayment() {
             //given
             Payment payment = Payment.create(1L, 1L, 10000L);
             payment.approve();
 
             //when
-            payment.cancel();
+            payment.refund();
 
             //then
             assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.CANCELLED);
@@ -152,14 +152,14 @@ class PaymentTest {
 
         @Test
         @DisplayName("PARTIAL_CANCELLED 상태에서 취소하면 잔여 금액까지 전부 취소되어 CANCELLED가 된다.")
-        void cancelFromPartialCancelled() {
+        void refundFromPartialCancelled() {
             //given
             Payment payment = Payment.create(1L, 1L, 10000L);
             payment.approve();
-            payment.partialCancel(3000L);
+            payment.partialRefund(3000L);
 
             //when
-            payment.cancel();
+            payment.refund();
 
             //then
             assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.CANCELLED);
@@ -172,10 +172,10 @@ class PaymentTest {
             //given
             Payment payment = Payment.create(1L,1L,  10000L);
             payment.approve();
-            payment.cancel();
+            payment.refund();
 
             //when & then
-            payment.cancel();
+            payment.refund();
 
             assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.CANCELLED);
             assertThat(payment.getRefundedAmount()).isEqualTo(10000L);
@@ -183,9 +183,9 @@ class PaymentTest {
 
         @Test
         @DisplayName("READY 상태에서 취소하면 예외가 발생한다.")
-        void cancelFromReady() {
+        void refundFromReady() {
             Payment payment = Payment.create(1L, 1L, 10000L);
-            assertThatThrownBy(payment::cancel)
+            assertThatThrownBy(payment::refund)
                     .isInstanceOf(BusinessException.class);
         }
     }
@@ -196,13 +196,13 @@ class PaymentTest {
 
         @Test
         @DisplayName("PAID 상태에서 일부 금액을 취소하면 PARTIAL_CANCELLED로 전이된다.")
-        void partialCancelPayment() {
+        void partialRefundPayment() {
             //given
             Payment payment = Payment.create(1L, 1L, 10000L);
             payment.approve();
 
             //when
-            payment.partialCancel(4000L);
+            payment.partialRefund(4000L);
 
             //then
             assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.PARTIAL_CANCELLED);
@@ -211,14 +211,14 @@ class PaymentTest {
 
         @Test
         @DisplayName("부분취소를 여러 번 나눠서 하면 refundedAmount가 누적된다.")
-        void partialCancelAccumulates() {
+        void partialRefundAccumulates() {
             //given
             Payment payment = Payment.create(1L, 1L, 10000L);
             payment.approve();
 
             //when
-            payment.partialCancel(3000L);
-            payment.partialCancel(4000L);
+            payment.partialRefund(3000L);
+            payment.partialRefund(4000L);
 
             //then
             assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.PARTIAL_CANCELLED);
@@ -227,15 +227,15 @@ class PaymentTest {
 
         @Test
         @DisplayName("부분취소 누적 합이 amount와 같아지면 CANCELLED로 전이된다.")
-        void cancelFromPartialCancelledWithFullyRefundedAmount() {
+        void refundFromPartialCancelledWithFullyRefundedAmount() {
             //given
             Payment payment = Payment.create(1L, 1L, 10000L);
             payment.approve();
-            payment.partialCancel(3000L);
+            payment.partialRefund(3000L);
 
             //when
-            payment.partialCancel(3000L);
-            payment.partialCancel(4000L);
+            payment.partialRefund(3000L);
+            payment.partialRefund(4000L);
 
             assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.CANCELLED);
             assertThat(payment.getRefundedAmount()).isEqualTo(10000L);
@@ -243,28 +243,28 @@ class PaymentTest {
 
         @Test
         @DisplayName("취소 금액이 null이거나 0 이하이면 예외가 발생한다.")
-        void partialCancelFailInvalidAmount() {
+        void partialRefundFailInvalidAmount() {
             Payment payment = Payment.create(1L, 1L,10000L);
             payment.approve();
 
-            assertThatThrownBy(() -> payment.partialCancel(null))
+            assertThatThrownBy(() -> payment.partialRefund(null))
                     .isInstanceOf(BusinessException.class);
-            assertThatThrownBy(() -> payment.partialCancel(0L))
+            assertThatThrownBy(() -> payment.partialRefund(0L))
                     .isInstanceOf(BusinessException.class);
-            assertThatThrownBy(() -> payment.partialCancel(-10000L))
+            assertThatThrownBy(() -> payment.partialRefund(-10000L))
                     .isInstanceOf(BusinessException.class);
         }
 
         @Test
         @DisplayName("잔여 금액을 초과해서 취소하면 예외가 발생한다.")
-        void partialCancelFailInvalidRefundAmount() {
+        void partialRefundFailInvalidRefundAmount() {
             //given
             Payment payment = Payment.create(1L, 1L, 10000L);
             payment.approve();
-            payment.partialCancel(7000L);
+            payment.partialRefund(7000L);
 
             //when & then
-            assertThatThrownBy(() -> payment.partialCancel(5000L))
+            assertThatThrownBy(() -> payment.partialRefund(5000L))
                     .isInstanceOf(BusinessException.class);
 
         }
@@ -273,7 +273,7 @@ class PaymentTest {
         @DisplayName("READY 상태에서 부분취소하면 예외가 발생한다.")
         void readyFromPartialCancelled() {
             Payment payment = Payment.create(1L, 1L, 10000L);
-            assertThatThrownBy(() -> payment.partialCancel(5000L))
+            assertThatThrownBy(() -> payment.partialRefund(5000L))
                     .isInstanceOf(BusinessException.class);
         }
     }

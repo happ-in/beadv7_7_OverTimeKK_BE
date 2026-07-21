@@ -1,7 +1,6 @@
 package com.programmers.kdt.payment.dto;
 
-public record PartialCancelPaymentRequest(
-        Long amount,
+public record RefundPaymentRequest(
         String reason
 ) {
 }

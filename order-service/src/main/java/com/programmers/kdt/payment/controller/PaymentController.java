@@ -58,21 +58,21 @@ public class PaymentController {
 
     // 결제 전액 취소
     @PostMapping("/{paymentId}/cancel")
-    public ApiResponse<CancelPaymentResponse> cancel(
+    public ApiResponse<RefundPaymentResponse> cancel(
             @PathVariable Long paymentId,
-            @RequestBody CancelPaymentRequest request) {
+            @RequestBody RefundPaymentRequest request) {
 
-        CancelPaymentResponse response = paymentService.cancel(paymentId, request);
+        RefundPaymentResponse response = paymentService.refund(paymentId, request);
         return ApiResponse.success(response);
     }
 
     // 결제 부분 취소
     @PostMapping("/{paymentId}/partial-cancel")
-    public ApiResponse<PartialCancelPaymentResponse> partialCancel(
+    public ApiResponse<PartialRefundPaymentResponse> partialCancel(
             @PathVariable Long paymentId,
-            @RequestBody PartialCancelPaymentRequest request) {
+            @RequestBody PartialRefundPaymentRequest request) {
 
-        PartialCancelPaymentResponse response = paymentService.partialCancel(paymentId, request);
+        PartialRefundPaymentResponse response = paymentService.partialRefund(paymentId, request);
         return ApiResponse.success(response);
     }
 

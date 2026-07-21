@@ -18,6 +18,7 @@ public enum PaymentErrorCode implements ErrorCode {
 
     PAYMENT_ALREADY_EXISTS(HttpStatus.CONFLICT, "PAY409_001", "이미 해당 주문에 대한 결제가 존재합니다."),
     INVALID_PAYMENT_STATUS(HttpStatus.CONFLICT, "PAY409_002", "현재 결제 상태에서는 처리할 수 없는 요청입니다. 현재 상태: {0}"),
+    PAYMENT_CONCURRENT_MODIFICATION(HttpStatus.CONFLICT, "P409_003", "다른 요청과 동시에 처리되어 실패했습니다. 잠시 후 다시 시도해주세요."),
 
     PG_REQUEST_FAILED(HttpStatus.BAD_GATEWAY, "PAY502_001", "PG사 요청 처리 중 오류가 발생했습니다."),
     INVALID_PAYMENT_KEY(HttpStatus.BAD_GATEWAY, "PAY502_002", "PG사로부터 유효한 결제 키를 받지 못했습니다."),
