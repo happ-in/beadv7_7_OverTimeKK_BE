@@ -59,7 +59,7 @@ public class PerformanceSession extends BaseTimeEntity {
         }
 
         if (now.isAfter(this.performance.getTicketOpenAt())) {
-            throw new BusinessException(PerformanceErrorCode.PERFORMANCE_SESSION_UPDATE_NOT_ALLOWED_AFTER_TICKET_OPEN);
+            throw new BusinessException(PerformanceErrorCode.PERFORMANCE_SESSION_UPDATE_NOT_ALLOWED_AFTER_TICKET_OPEN, "변경");
         }
     }
 
