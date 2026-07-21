@@ -1,5 +1,6 @@
 package com.programmers.kdt.payment.entity;
 
+import com.programmers.kdt.common.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -36,15 +37,15 @@ class PointLogTest {
         @DisplayName("userId, amount, eventId가 유효하지 않으면 예외가 발생한다.")
         void createInvalidEarnLog() {
             assertThatThrownBy(() -> PointLog.earn(null, 500L, "evt-1"))
-                    .isInstanceOf(IllegalArgumentException.class); // userId가 null
+                    .isInstanceOf(BusinessException.class); // userId가 null
             assertThatThrownBy(() -> PointLog.earn(1L, 0L, "evt-1"))
-                    .isInstanceOf(IllegalArgumentException.class); // amount가 0 이하
+                    .isInstanceOf(BusinessException.class); // amount가 0 이하
             assertThatThrownBy(() -> PointLog.earn(1L, -500L, "evt-1"))
-                    .isInstanceOf(IllegalArgumentException.class); // amount가 음수
+                    .isInstanceOf(BusinessException.class); // amount가 음수
             assertThatThrownBy(() -> PointLog.earn(1L, 500L, null))
-                    .isInstanceOf(IllegalArgumentException.class); // eventId가 null
+                    .isInstanceOf(BusinessException.class); // eventId가 null
             assertThatThrownBy(() -> PointLog.earn(1L, 500L, " "))
-                    .isInstanceOf(IllegalArgumentException.class); // eventId가 빈칸
+                    .isInstanceOf(BusinessException.class); // eventId가 빈칸
         }
     }
 
@@ -67,15 +68,15 @@ class PointLogTest {
         @DisplayName("userId, amount, eventId가 유효하지 않으면 예외가 발생한다.")
         void createInvalidUseLog() {
             assertThatThrownBy(() -> PointLog.use(null, 500L, "evt-1"))
-                    .isInstanceOf(IllegalArgumentException.class); //userId가 null
+                    .isInstanceOf(BusinessException.class); //userId가 null
             assertThatThrownBy(() -> PointLog.use(1L, 0L, "evt-1"))
-                    .isInstanceOf(IllegalArgumentException.class); // amount가 0 이하
+                    .isInstanceOf(BusinessException.class); // amount가 0 이하
             assertThatThrownBy(() -> PointLog.use(1L, -500L, "evt-1"))
-                    .isInstanceOf(IllegalArgumentException.class); // amount가 0 이하
+                    .isInstanceOf(BusinessException.class); // amount가 0 이하
             assertThatThrownBy(() -> PointLog.use(1L, 500L, null))
-                    .isInstanceOf(IllegalArgumentException.class); // eventId가 null
+                    .isInstanceOf(BusinessException.class); // eventId가 null
             assertThatThrownBy(() -> PointLog.use(1L, 500L, " "))
-                    .isInstanceOf(IllegalArgumentException.class); // eventId가 빈칸
+                    .isInstanceOf(BusinessException.class); // eventId가 빈칸
         }
     }
 
@@ -136,14 +137,14 @@ class PointLogTest {
 
             //when & then
             assertThatThrownBy(() -> PointLog.rollback(originLog, 600L, "evt-2", true))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(BusinessException.class);
         }
 
         @Test
         @DisplayName("원본 로그가 null이면 예외가 발생한다.")
         void cancelLogNullOrigin() {
             assertThatThrownBy(() -> PointLog.rollback(null, 500L, "evt-2", true))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(BusinessException.class);
         }
 
         @Test
@@ -155,7 +156,7 @@ class PointLogTest {
 
             //when & then
             assertThatThrownBy(() -> PointLog.rollback(earnLog, 500L, "evt-2", true))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(BusinessException.class);
         }
 
     }

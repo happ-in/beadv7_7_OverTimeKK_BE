@@ -1,6 +1,8 @@
 package com.programmers.kdt.payment.entity;
 
 import com.programmers.kdt.common.entity.BaseTimeEntity;
+import com.programmers.kdt.common.exception.BusinessException;
+import com.programmers.kdt.payment.exception.PointErrorCode;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -20,7 +22,7 @@ public class Point extends BaseTimeEntity {
 
     public static Point create(Long userId) {
         if (userId == null) {
-            throw new IllegalArgumentException("userId가 없습니다.");
+            throw new BusinessException(PointErrorCode.MISSING_USER_ID);
         }
         Point point = new Point();
         point.userId = userId;
@@ -36,10 +38,10 @@ public class Point extends BaseTimeEntity {
     // 포인트 사용
     public void use(Long amount) {
         if (amount == null || amount <= 0) {
-            throw new IllegalArgumentException("사용 금액은 0원보다 커야 합니다. 사용금 : " + amount);
+            throw new BusinessException(PointErrorCode.ZERO_POINT_AMOUNT, amount);
         }
         if (this.totalPoint < amount) {
-            throw new IllegalArgumentException("사용 금액이 보유 포인트보다 많습니다. 보유 포인트 : " + this.totalPoint + ", 사용금 : " + amount);
+            throw new BusinessException(PointErrorCode.INSUFFICIENT_POINT, this.totalPoint, amount);
         }
         this.totalPoint -= amount;
     }
@@ -52,7 +54,7 @@ public class Point extends BaseTimeEntity {
     // 지급, 환급시 공통 메서드
     private void add(Long amount, String label) {
         if (amount == null || amount <= 0) {
-            throw new IllegalArgumentException(label + "금액은 0원보다 커야 합니다. 금액 : " + amount);
+            throw new BusinessException(PointErrorCode.ZERO_POINT_AMOUNT, amount);
         }
         this.totalPoint += amount;
     }

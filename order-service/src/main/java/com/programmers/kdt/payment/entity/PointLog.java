@@ -1,6 +1,8 @@
 package com.programmers.kdt.payment.entity;
 
 import com.programmers.kdt.common.entity.BaseTimeEntity;
+import com.programmers.kdt.common.exception.BusinessException;
+import com.programmers.kdt.payment.exception.PointErrorCode;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -57,14 +59,13 @@ public class PointLog extends BaseTimeEntity {
     // 환급 내역 생성 메서드
     public static PointLog rollback(PointLog originPointLog, Long amount, String eventId, boolean isFullRollback) {
         if (originPointLog == null || originPointLog.getPointType() != PointType.USE) {
-            throw new IllegalArgumentException("환급은 USE 로그만 가능합니다.");
+            throw new BusinessException(PointErrorCode.INVALID_ROLLBACK_TARGET);
         }
 
         validateCommon(originPointLog.getUserId(), amount, eventId);
 
         if (amount > originPointLog.getAmount()) {
-            throw new IllegalArgumentException("취소 금액이 원본 사용금액을 초과했습니다. 원본 : " + originPointLog.getAmount() +
-                    "취소 금액 :" + amount);
+            throw new BusinessException(PointErrorCode.ROLLBACK_AMOUNT_EXCEEDED, originPointLog.getAmount(), amount);
         }
 
         PointLog pointLog = new PointLog();
@@ -79,13 +80,14 @@ public class PointLog extends BaseTimeEntity {
     // 공통 예외처리 메서드
     private static void validateCommon(Long userId, Long amount, String eventId) {
         if (userId == null) {
-            throw new IllegalArgumentException("userId가 없습니다.");
+            throw new BusinessException(PointErrorCode.MISSING_USER_ID);
         }
         if (amount == null || amount <= 0) {
-            throw new IllegalArgumentException("금액은 0원보다 커야 합니다. 금액 : " + amount);
+            throw new BusinessException(PointErrorCode.ZERO_POINT_AMOUNT, amount);
         }
         if (eventId == null || eventId.isBlank()) {
-            throw new IllegalArgumentException("eventId가 없습니다.");
+            throw new BusinessException(PointErrorCode.MISSING_EVENT_ID);
         }
+
     }
 }
