@@ -11,11 +11,14 @@ import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 
 public record PerformanceSessionRequest(
-        @NotNull Long sessionId,
-        @NotNull Long performanceId,
-        @NotBlank  String actor,
+        @NotNull(message = "회차정보 입력은 필수입니다.")
+        Long sessionId,
+        @NotNull(message = "공연정보 입력은 필수입니다.")
+        Long performanceId,
+        @NotBlank(message = "배우 입력은 필수입니다.")
+        String actor,
 
-        @NotNull
+        @NotNull(message = "해당 회차 공연 시작시간 입력은 필수입니다.")
         @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
         LocalDateTime performanceStartAt
 ) {
