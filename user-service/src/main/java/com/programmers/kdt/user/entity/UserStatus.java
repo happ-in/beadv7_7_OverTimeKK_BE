@@ -1,5 +1,5 @@
 package com.programmers.kdt.user.entity;
 
 public enum UserStatus {
-    ACTIVE, WITHDRAWN
+    ACTIVE, DORMANT, WITHDRAWN
 }

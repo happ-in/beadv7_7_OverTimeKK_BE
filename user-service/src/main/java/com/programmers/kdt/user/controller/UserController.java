@@ -1,5 +1,6 @@
 package com.programmers.kdt.user.controller;
 
+import com.programmers.kdt.common.response.ApiResponse;
 import com.programmers.kdt.user.dto.SignUpIndividualRequest;
 import com.programmers.kdt.user.dto.SignUpUserResponse;
 import com.programmers.kdt.user.service.UserService;
@@ -15,8 +16,8 @@ public class UserController {
     private final UserService userService;
 
     @PostMapping("/signup/individual")
-    public SignUpUserResponse signUpIndividual(@Valid @RequestBody SignUpIndividualRequest request) {
-        return userService.signUpIndividual(request);
+    public ApiResponse<SignUpUserResponse> signUpIndividual(@Valid @RequestBody SignUpIndividualRequest request) {
+        return ApiResponse.success(userService.signUpIndividual(request));
     }
 
     /**
@@ -24,7 +25,7 @@ public class UserController {
      * TODO: 실제로는 이런 서비스 간 호출 엔드포인트를 명확히 구분(예: /internal/**)하는 것을 고려
      */
     @GetMapping("/{userId}")
-    public SignUpUserResponse getUser(@PathVariable Long userId) {
+    public ApiResponse<SignUpUserResponse> getUser(@PathVariable Long userId) {
         // TODO
         return null;
     }
