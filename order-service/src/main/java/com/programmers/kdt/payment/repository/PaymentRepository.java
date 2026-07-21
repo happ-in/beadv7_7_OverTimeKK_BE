@@ -10,4 +10,6 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     Page<Payment> findByUserId(Long userId, Pageable pageable);
 
     boolean existsByOrderId(Long orderId);
+
+
 }

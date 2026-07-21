@@ -37,6 +37,10 @@ public class Payment extends BaseTimeEntity {
     @Column(name = "payment_key")
     private String paymentKey; // PG 참조값
 
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
+
     //결제 생성 메서드
     public static Payment create(Long orderId, Long userId, Long amount) {
 
@@ -87,25 +91,25 @@ public class Payment extends BaseTimeEntity {
     }
 
     // 전액 취소 메서드 PAID -> CANCELLED
-    public void cancel() {
+    public void refund() {
         if (paymentStatus == PaymentStatus.CANCELLED) {
             return; // 이미 취소 완료된 상태, 중복 이벤트 무시
         }
         if (isPaidOrPartialCancelled()) {
             throw new BusinessException(PaymentErrorCode.INVALID_PAYMENT_STATUS, this.paymentStatus);
         }
-        partialCancel(amount - refundedAmount); // 부분환불에 로직 위임 -> refundedAmount 부분환불 로직에서만 변경
+        partialRefund(amount - refundedAmount); // 부분환불에 로직 위임 -> refundedAmount 부분환불 로직에서만 변경
     }
 
     // 부분 취소 메서드 PAID OR PARTIAL_CANCELLED -> PARTIAL_CANCELLED
-    public void partialCancel(Long cancelAmount) {
+    public void partialRefund(Long cancelAmount) {
         if (isPaidOrPartialCancelled()) {
             throw new BusinessException(PaymentErrorCode.INVALID_PAYMENT_STATUS, this.paymentStatus);
         }
 
         long remaining = amount - refundedAmount; // 남은 금액 = 결제금액 - 취소금액
         if (cancelAmount == null || cancelAmount <= 0 || cancelAmount > remaining) {
-            throw new BusinessException(PaymentErrorCode.INVALID_REFUND_AMOUNT, refundedAmount , cancelAmount);
+            throw new BusinessException(PaymentErrorCode.INVALID_REFUND_AMOUNT, refundedAmount, cancelAmount);
         }
 
         this.refundedAmount += cancelAmount;
