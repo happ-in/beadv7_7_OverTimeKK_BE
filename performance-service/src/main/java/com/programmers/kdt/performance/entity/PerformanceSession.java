@@ -3,7 +3,7 @@ package com.programmers.kdt.performance.entity;
 import com.programmers.kdt.common.entity.BaseTimeEntity;
 import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.common.exception.CommonErrorCode;
-import com.programmers.kdt.performance.common.exception.PerformanceErrorCode;
+import com.programmers.kdt.performance.exception.PerformanceErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
