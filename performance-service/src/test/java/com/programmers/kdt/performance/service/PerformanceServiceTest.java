@@ -1,11 +1,14 @@
 package com.programmers.kdt.performance.service;
 
 import com.programmers.kdt.common.exception.BusinessException;
+import com.programmers.kdt.performance.dto.PerformanceDetailResponse;
 import com.programmers.kdt.performance.dto.PerformanceRequest;
 import com.programmers.kdt.performance.dto.PerformanceResponse;
 import com.programmers.kdt.performance.entity.Performance;
 import com.programmers.kdt.performance.exception.PerformanceErrorCode;
 import com.programmers.kdt.performance.repository.PerformanceRepository;
+import com.programmers.kdt.performance.repository.PerformanceSeatPriceRepository;
+import com.programmers.kdt.performance.repository.PerformanceSessionRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -14,12 +17,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -27,6 +32,12 @@ class PerformanceServiceTest {
 
     @Mock
     private PerformanceRepository performanceRepository;
+
+    @Mock
+    private PerformanceSessionRepository performanceSessionRepository;
+
+    @Mock
+    private PerformanceSeatPriceRepository performanceSeatPriceRepository;
 
     @InjectMocks
     private PerformanceService performanceService;
@@ -99,5 +110,81 @@ class PerformanceServiceTest {
         assertThatThrownBy(() -> performanceService.updatePerformance(1L, request, 999L))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage(PerformanceErrorCode.NOT_PERFORMANCE_OWNER.getMessage());
+    }
+
+    @Test
+    void 공연_삭제_성공() {
+        Performance performance = Performance.createPerformance(
+                "뮤지컬A", "설명", "120분",
+                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 1L);
+        given(performanceRepository.findById(1L)).willReturn(Optional.of(performance));
+
+        performanceService.deletePerformance(1L, 1L);
+
+        verify(performanceSeatPriceRepository).deleteByPerformance_PerformanceId(1L);
+        verify(performanceSessionRepository).deleteByPerformanceSessionId_PerformanceId(1L);
+        verify(performanceRepository).delete(performance);
+    }
+
+    @Test
+    void 없는_공연_삭제시_예외() {
+        given(performanceRepository.findById(999L)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> performanceService.deletePerformance(999L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(PerformanceErrorCode.PERFORMANCE_NOT_FOUND.getMessage());
+        verify(performanceRepository, never()).delete(any(Performance.class));
+    }
+
+    @Test
+    void 판매자_본인이_아니면_삭제_예외() {
+        Performance performance = Performance.createPerformance(
+                "뮤지컬A", "설명", "120분",
+                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 1L);
+        given(performanceRepository.findById(1L)).willReturn(Optional.of(performance));
+
+        assertThatThrownBy(() -> performanceService.deletePerformance(1L, 999L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(PerformanceErrorCode.NOT_PERFORMANCE_OWNER.getMessage());
+        verify(performanceRepository, never()).delete(any(Performance.class));
+    }
+
+    @Test
+    void 공연_단건_조회_성공() {
+        Performance performance = Performance.createPerformance(
+                "뮤지컬A", "설명", "120분",
+                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 2L);
+        given(performanceRepository.findById(1L)).willReturn(Optional.of(performance));
+
+        PerformanceDetailResponse res = performanceService.getPerformanceDetail(1L);
+
+        assertThat(res.title()).isEqualTo("뮤지컬A");
+        assertThat(res.hallId()).isEqualTo(2L);
+    }
+
+    @Test
+    void 없는_공연_단건_조회시_예외() {
+        given(performanceRepository.findById(999L)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> performanceService.getPerformanceDetail(999L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(PerformanceErrorCode.PERFORMANCE_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    void 공연_목록_조회_성공() {
+        Performance a = Performance.createPerformance(
+                "뮤지컬A", "설명", "120분",
+                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 1L);
+        Performance b = Performance.createPerformance(
+                "뮤지컬B", "설명", "130분",
+                LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), null, 2L, 2L);
+        given(performanceRepository.findAll()).willReturn(List.of(a, b));
+
+        List<PerformanceDetailResponse> result = performanceService.getPerformances();
+
+        assertThat(result).hasSize(2);
+        assertThat(result).extracting(PerformanceDetailResponse::title)
+                .containsExactly("뮤지컬A", "뮤지컬B");
     }
 }

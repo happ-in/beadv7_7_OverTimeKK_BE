@@ -12,4 +12,6 @@ import java.util.Optional;
 @Repository
 public interface PerformanceSessionRepository extends JpaRepository<PerformanceSession, PerformanceSessionId> {
     Optional<List<PerformanceSession>> findByPerformanceSessionId_PerformanceId(Long performanceId);
+
+    void deleteByPerformanceSessionId_PerformanceId(Long performanceId);
 }
