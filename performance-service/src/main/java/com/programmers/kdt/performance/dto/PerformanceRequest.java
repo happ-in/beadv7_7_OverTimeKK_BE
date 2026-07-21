@@ -7,11 +7,14 @@ import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-public record UpdatePerformanceRequest(
-        @NotBlank String title, String description, @NotBlank String runtime,
-        @NotNull LocalDate startDate, @NotNull LocalDate endDate,
+public record PerformanceRequest(
+        @NotBlank String title,
+        String description,             // nullable
+        @NotBlank String runtime,
+        @NotNull LocalDate startDate,
+        @NotNull LocalDate endDate,
         @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-        LocalDateTime ticketOpenAt,
+        LocalDateTime ticketOpenAt,     // nullable
         @NotNull Long hallId
 ) {
 }

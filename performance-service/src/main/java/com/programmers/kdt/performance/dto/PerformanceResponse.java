@@ -1,6 +1,6 @@
 package com.programmers.kdt.performance.dto;
 
-public record RegisterPerformanceResponse(
+public record PerformanceResponse(
         Long performanceId,
         String title
 ) {

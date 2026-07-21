@@ -14,7 +14,7 @@ class PerformanceTest {
 
     @Test
     void 공연_생성_성공() {
-        Performance performance = Performance.create(
+        Performance performance = Performance.createPerformance(
                 "뮤지컬A", "설명", "120분",
                 LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31),
                 LocalDateTime.of(2026, 7, 1, 10, 0),
@@ -27,7 +27,7 @@ class PerformanceTest {
 
     @Test
     void 종료일이_시작일보다_빠르면_예외() {
-        assertThatThrownBy(() -> Performance.create(
+        assertThatThrownBy(() -> Performance.createPerformance(
                 "뮤지컬A", "설명", "120분",
                 LocalDate.of(2026, 8, 31), LocalDate.of(2026, 8, 1),
                 null, 1L, 1L))
@@ -37,7 +37,7 @@ class PerformanceTest {
 
     @Test
     void 티켓오픈이_공연시작_이후면_예외() {
-        assertThatThrownBy(() -> Performance.create(
+        assertThatThrownBy(() -> Performance.createPerformance(
                 "뮤지컬A", "설명", "120분",
                 LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31),
                 LocalDateTime.of(2026, 9, 1, 10, 0),
@@ -48,11 +48,11 @@ class PerformanceTest {
 
     @Test
     void 공연_수정_성공() {
-        Performance performance = Performance.create(
+        Performance performance = Performance.createPerformance(
                 "뮤지컬A", "설명", "120분",
                 LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 1L);
 
-        performance.update("뮤지컬B", "수정설명", "130분",
+        performance.updatePerformance("뮤지컬B", "수정설명", "130분",
                 LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), null, 2L);
 
         assertThat(performance.getTitle()).isEqualTo("뮤지컬B");
@@ -61,11 +61,11 @@ class PerformanceTest {
 
     @Test
     void 수정시_종료일이_시작일보다_빠르면_예외() {
-        Performance performance = Performance.create(
+        Performance performance = Performance.createPerformance(
                 "뮤지컬A", "설명", "120분",
                 LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 1L);
 
-        assertThatThrownBy(() -> performance.update("뮤지컬B", "설명", "120분",
+        assertThatThrownBy(() -> performance.updatePerformance("뮤지컬B", "설명", "120분",
                 LocalDate.of(2026, 9, 30), LocalDate.of(2026, 9, 1), null, 1L))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage(PerformanceErrorCode.INVALID_PERIOD.getMessage());

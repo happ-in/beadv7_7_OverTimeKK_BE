@@ -1,9 +1,8 @@
 package com.programmers.kdt.performance.controller;
 
 import com.programmers.kdt.common.response.ApiResponse;
-import com.programmers.kdt.performance.dto.RegisterPerformanceRequest;
-import com.programmers.kdt.performance.dto.RegisterPerformanceResponse;
-import com.programmers.kdt.performance.dto.UpdatePerformanceRequest;
+import com.programmers.kdt.performance.dto.PerformanceRequest;
+import com.programmers.kdt.performance.dto.PerformanceResponse;
 import com.programmers.kdt.performance.service.PerformanceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,20 +20,20 @@ public class PerformanceController {
 
     // TODO: user-service 판매자 검증필요
     @PostMapping
-    public ResponseEntity<ApiResponse<RegisterPerformanceResponse>> register(
-            @Valid @RequestBody RegisterPerformanceRequest request,
+    public ResponseEntity<ApiResponse<PerformanceResponse>> registerPerformance(
+            @Valid @RequestBody PerformanceRequest request,
             @RequestHeader("X-User-Id") Long sellerId) {
-        RegisterPerformanceResponse res = performanceService.registerPerformance(request, sellerId);
+        PerformanceResponse res = performanceService.registerPerformance(request, sellerId);
         return ResponseEntity.created(URI.create("/api/performances/" + res.performanceId())).body(ApiResponse.success(res));
     }
 
     @PutMapping("/{performanceId}")
-    public ApiResponse<Void> updatePerformance(
+    public ResponseEntity<ApiResponse<PerformanceResponse>> updatePerformance(
             @PathVariable Long performanceId,
-            @Valid @RequestBody UpdatePerformanceRequest request,
+            @Valid @RequestBody PerformanceRequest request,
             @RequestHeader("X-User-Id") Long sellerId) {
-        performanceService.updatePerformance(performanceId, request, sellerId);
-        return ApiResponse.success(null);
+        PerformanceResponse res = performanceService.updatePerformance(performanceId, request, sellerId);
+        return ResponseEntity.ok(ApiResponse.success(res));
     }
 
     @PostMapping("/{performanceId}/cancel")

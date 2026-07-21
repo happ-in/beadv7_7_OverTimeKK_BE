@@ -47,10 +47,10 @@ public class Performance extends BaseTimeEntity {
     private Long hallId;
 
 
-    public static Performance create(String title, String description, String runtime,
+    public static Performance createPerformance(String title, String description, String runtime,
                                      LocalDate startDate, LocalDate endDate, LocalDateTime ticketOpenAt,
                                      Long sellerId, Long hallId) {
-        validate(startDate, endDate, ticketOpenAt);
+        validatePerformance(startDate, endDate, ticketOpenAt);
         Performance performance = new Performance();
         performance.title = title;
         performance.description = description;
@@ -65,9 +65,9 @@ public class Performance extends BaseTimeEntity {
 
     // TODO: 티켓 오픈(ticketOpenAt) 이후에는 판매자가 좌석가(PerformanceSeatPrice) 변경 불가.
     //  좌석가격 수정 로직 추후 추가 및 검증 필요
-    public void update(String title, String description, String runtime,
+    public void updatePerformance(String title, String description, String runtime,
                        LocalDate startDate, LocalDate endDate, LocalDateTime ticketOpenAt, Long hallId) {
-        validate(startDate, endDate, ticketOpenAt);
+        validatePerformance(startDate, endDate, ticketOpenAt);
         this.title = title;
         this.description = description;
         this.runtime = runtime;
@@ -77,7 +77,7 @@ public class Performance extends BaseTimeEntity {
         this.hallId = hallId;
     }
 
-    private static void validate(LocalDate startDate, LocalDate endDate, LocalDateTime ticketOpenAt) {
+    private static void validatePerformance(LocalDate startDate, LocalDate endDate, LocalDateTime ticketOpenAt) {
         if (endDate.isBefore(startDate)) {
             throw new BusinessException(PerformanceErrorCode.INVALID_PERIOD);
         }
