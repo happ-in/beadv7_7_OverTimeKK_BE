@@ -1,4 +1,4 @@
-package com.programmers.kdt.payment.client;
+package com.programmers.kdt.payment.client.pg;
 
 public record PgCancelCommand(
         String transactionKey,

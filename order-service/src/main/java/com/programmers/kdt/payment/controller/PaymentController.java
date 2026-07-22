@@ -9,7 +9,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
 
 @RestController
 @RequestMapping("/api/payments")
@@ -20,10 +23,9 @@ public class PaymentController {
 
     // 결제 요청
     @PostMapping("/pay")
-    @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<CreatePaymentResponse> pay(@RequestBody CreatePaymentRequest request) {
+    public ResponseEntity<ApiResponse<CreatePaymentResponse>> pay(@RequestBody CreatePaymentRequest request) {
         CreatePaymentResponse response = paymentService.pay(request);
-        return ApiResponse.success(response);
+        return ResponseEntity.created(URI.create("/api/payments/" + response.paymentId())).body(ApiResponse.success(response));
     }
 
     // 결제 승인
@@ -56,24 +58,14 @@ public class PaymentController {
         return ApiResponse.success(response);
     }
 
-    // 결제 전액 취소
-    @PostMapping("/{paymentId}/cancel")
-    public ApiResponse<RefundPaymentResponse> cancel(
+    // 결제 환불
+    @PostMapping("/{paymentId}/refund")
+    public ResponseEntity<ApiResponse<RefundPaymentResponse>> refund(
             @PathVariable Long paymentId,
             @RequestBody RefundPaymentRequest request) {
 
         RefundPaymentResponse response = paymentService.refund(paymentId, request);
-        return ApiResponse.success(response);
-    }
-
-    // 결제 부분 취소
-    @PostMapping("/{paymentId}/partial-cancel")
-    public ApiResponse<PartialRefundPaymentResponse> partialCancel(
-            @PathVariable Long paymentId,
-            @RequestBody PartialRefundPaymentRequest request) {
-
-        PartialRefundPaymentResponse response = paymentService.partialRefund(paymentId, request);
-        return ApiResponse.success(response);
+        return ResponseEntity.created(URI.create("/api/payments/" + response.paymentId())).body(ApiResponse.success(response));
     }
 
     @GetMapping("/{paymentId}/refunds")

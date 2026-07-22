@@ -1,5 +1,6 @@
 package com.programmers.kdt.payment.service;
 
+import com.programmers.kdt.payment.client.refund.RefundRequestEvent;
 import com.programmers.kdt.payment.dto.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -21,8 +22,7 @@ public interface PaymentService {
     // 전액 환불
     RefundPaymentResponse refund(Long paymentId, RefundPaymentRequest request);
 
-    // 부분 환불
-    PartialRefundPaymentResponse partialRefund(Long paymentId, PartialRefundPaymentRequest request);
+    void onRefundRequested(RefundRequestEvent event);
 
     // 환불 내역 조회
     Page<GetPaymentRefundHistoryResponse> getRefundHistory (Long paymentId, Pageable pageable);
