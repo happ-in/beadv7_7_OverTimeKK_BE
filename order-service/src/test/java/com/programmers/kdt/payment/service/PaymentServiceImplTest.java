@@ -184,6 +184,7 @@ class PaymentServiceImplTest {
             ConfirmPaymentResponse response = paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123"));
 
             assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.PAID);
+            assertThat(payment.getPaymentKey()).isEqualTo("PG_KEY_123");
             assertThat(response).isNotNull();
         }
 
@@ -214,18 +215,6 @@ class PaymentServiceImplTest {
 
             verifyNoInteractions(pgClient);
 
-        }
-
-        @Test
-        @DisplayName("transactionKey가 일치하지 않으면 예외가 발생한다.")
-        void confirmKeyMismatch() {
-            when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
-            assertThatThrownBy(() -> paymentService.confirm(1L, new ConfirmPaymentRequest("WRONG_KEY")))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting(e -> ((BusinessException) e).getErrorCode())
-                    .isEqualTo(PaymentErrorCode.PAYMENT_KEY_MISMATCH);
-
-            verifyNoInteractions(pgClient);
         }
 
         @Test

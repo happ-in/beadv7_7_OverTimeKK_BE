@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body>
+<pre id="result"></pre>
+<script>
+    const params = new URLSearchParams(window.location.search);
+    document.getElementById('result').textContent =
+        `code: ${params.get("code")}\nmessage: ${params.get("message")}`;
+</script>
+</body>
+</html>

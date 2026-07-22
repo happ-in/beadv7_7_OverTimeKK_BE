@@ -4,6 +4,7 @@ import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.order.entity.Order;
 import com.programmers.kdt.order.repository.OrderRepository;
 import com.programmers.kdt.payment.client.pg.*;
+import com.programmers.kdt.payment.client.pg.PgOrderIdFormatter;
 import com.programmers.kdt.payment.client.refund.*;
 import com.programmers.kdt.payment.dto.*;
 import com.programmers.kdt.payment.entity.Payment;
@@ -63,12 +64,14 @@ public class PaymentServiceImpl implements PaymentService{
         PgReadyResult readyResult;
         try {
             readyResult = pgClient.ready(new PgReadyCommand(request.orderId(), request.amount()));
+        } catch (PgClientException e) {
+            log.error("토스 결제 준비 실패 - orderId={}, pgCode={}, pgMessage={}", request.orderId(), e.getPgErrorCode(), e.getMessage());
+            throw new BusinessException(PaymentErrorCode.PG_REQUEST_FAILED);
         } catch (Exception e) {
+            log.error("PG 요청 중 알 수 없는 오류 - orderId={}", request.orderId(), e);
             throw new BusinessException(PaymentErrorCode.PG_REQUEST_FAILED);
         }
 
-        // PG사 키 할당
-        payment.assignPaymentKey(readyResult.transactionKey());
         paymentRepository.save(payment);
 
         return CreatePaymentResponse.of(payment, readyResult);
@@ -79,20 +82,24 @@ public class PaymentServiceImpl implements PaymentService{
     public ConfirmPaymentResponse confirm(Long paymentId, ConfirmPaymentRequest request) {
         Payment payment = getPayment(paymentId);
 
-        // 요청한 결제와 다른 결제일 경우
-        if (!payment.getPaymentKey().equals(request.transactionKey())) {
-            throw new BusinessException(PaymentErrorCode.PAYMENT_KEY_MISMATCH);
-        }
-
         // 상태 검증
         if (payment.getPaymentStatus() != PaymentStatus.READY) {
             throw new BusinessException(PaymentErrorCode.INVALID_PAYMENT_STATUS, payment.getPaymentStatus());
         }
 
+        payment.assignPaymentKey(request.transactionKey());
+
         PgApproveResult approveResult;
         try {
-            approveResult = pgClient.approve(new PgApproveCommand(payment.getPaymentKey(), payment.getAmount()));
+            approveResult = pgClient.approve(new PgApproveCommand(
+                    payment.getPaymentKey(),
+                    PgOrderIdFormatter.format(payment.getOrderId()),
+                    payment.getAmount()));
+        } catch (PgClientException e) {
+            log.error("토스 결제 승인 실패 - paymentId={}, pgCode={}, pgMessage={}", paymentId, e.getPgErrorCode(), e.getMessage());
+            throw new BusinessException(PaymentErrorCode.PG_REQUEST_FAILED);
         } catch (Exception e) {
+            log.error("PG 요청 중 알 수 없는 오류 - paymentId={}", paymentId, e);
             throw new BusinessException(PaymentErrorCode.PG_REQUEST_FAILED);
         }
 
@@ -117,7 +124,11 @@ public class PaymentServiceImpl implements PaymentService{
         if (!alreadyFailed && payment.getPaymentKey() != null) {
             try {
                 pgClient.cancel(new PgCancelCommand(payment.getPaymentKey(), payment.getAmount(), request.reason()));
+            } catch (PgClientException e) {
+                log.error("토스 결제 취소 실패 - paymentId={}, pgCode={}, pgMessage={}", paymentId, e.getPgErrorCode(), e.getMessage());
+                throw new BusinessException(PaymentErrorCode.PG_REQUEST_FAILED);
             } catch (Exception e) {
+                log.error("PG 요청 중 알 수 없는 오류 - paymentId={}", paymentId, e);
                 throw new BusinessException(PaymentErrorCode.PG_REQUEST_FAILED);
             }
 
