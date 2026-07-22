@@ -1,6 +1,7 @@
 package com.programmers.kdt.payment.entity;
 
 import com.programmers.kdt.common.exception.BusinessException;
+import com.programmers.kdt.payment.exception.PaymentErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -132,149 +133,198 @@ class PaymentTest {
     }
 
     @Nested
-    @DisplayName("전액 취소")
-    class CancelPayment {
+    @DisplayName("환불 요청 (requestRefund)")
+    class RequestRefund {
 
         @Test
-        @DisplayName("PAID 상태에서 취소하면 CANCELLED로 전이되고 refundedAmount가 amount와 같아진다.")
-        void refundPayment() {
+        @DisplayName("PAID 상태에서 요청하면 REFUND_PENDING으로 전이된다.")
+        void requestRefundSuccess() {
             //given
             Payment payment = Payment.create(1L, 1L, 10000L);
             payment.approve();
 
             //when
-            payment.refund();
+            payment.requestRefund();
 
             //then
-            assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.CANCELLED);
-            assertThat(payment.getRefundedAmount()).isEqualTo(10000L);
+            assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.REFUND_PENDING);
         }
 
         @Test
-        @DisplayName("PARTIAL_CANCELLED 상태에서 취소하면 잔여 금액까지 전부 취소되어 CANCELLED가 된다.")
-        void refundFromPartialCancelled() {
+        @DisplayName("이미 REFUND_PENDING 상태에서 다시 요청하면 예외가 발생한다.")
+        void requestRefundAlreadyInProgress() {
             //given
             Payment payment = Payment.create(1L, 1L, 10000L);
             payment.approve();
-            payment.partialRefund(3000L);
-
-            //when
-            payment.refund();
-
-            //then
-            assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.CANCELLED);
-            assertThat(payment.getRefundedAmount()).isEqualTo(10000L);
-        }
-
-        @Test
-        @DisplayName("이미 CANCELLED된 상태면 예외 없이 무시한다.")
-        void dismissAlreadyCancelled() {
-            //given
-            Payment payment = Payment.create(1L,1L,  10000L);
-            payment.approve();
-            payment.refund();
+            payment.requestRefund();
 
             //when & then
-            payment.refund();
-
-            assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.CANCELLED);
-            assertThat(payment.getRefundedAmount()).isEqualTo(10000L);
+            assertThatThrownBy(payment::requestRefund)
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(PaymentErrorCode.REFUND_ALREADY_IN_PROGRESS);
         }
 
         @Test
-        @DisplayName("READY 상태에서 취소하면 예외가 발생한다.")
-        void refundFromReady() {
+        @DisplayName("READY 상태에서 요청하면 예외가 발생한다.")
+        void requestRefundFromReady() {
             Payment payment = Payment.create(1L, 1L, 10000L);
-            assertThatThrownBy(payment::refund)
-                    .isInstanceOf(BusinessException.class);
+
+            assertThatThrownBy(payment::requestRefund)
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(PaymentErrorCode.INVALID_PAYMENT_STATUS);
+        }
+
+        @Test
+        @DisplayName("이미 CANCELLED된 상태에서 요청하면 예외가 발생한다.")
+        void requestRefundFromCancelled() {
+            //given
+            Payment payment = Payment.create(1L, 1L, 10000L);
+            payment.approve();
+            payment.requestRefund();
+            payment.completeRefund(10000L);
+
+            //when & then
+            assertThatThrownBy(payment::requestRefund)
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(PaymentErrorCode.INVALID_PAYMENT_STATUS);
         }
     }
 
     @Nested
-    @DisplayName("부분 취소")
-    class PartialCancelPayment {
+    @DisplayName("환불 처리 완료 (completeRefund)")
+    class CompleteRefund {
 
         @Test
-        @DisplayName("PAID 상태에서 일부 금액을 취소하면 PARTIAL_CANCELLED로 전이된다.")
-        void partialRefundPayment() {
+        @DisplayName("REFUND_PENDING 상태에서 전액 완료하면 CANCELLED로 전이되고 refundedAmount가 설정된다.")
+        void completeRefundFull() {
             //given
             Payment payment = Payment.create(1L, 1L, 10000L);
             payment.approve();
+            payment.requestRefund();
 
             //when
-            payment.partialRefund(4000L);
+            payment.completeRefund(10000L);
 
             //then
-            assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.PARTIAL_CANCELLED);
-            assertThat(payment.getRefundedAmount()).isEqualTo(4000L);
-        }
-
-        @Test
-        @DisplayName("부분취소를 여러 번 나눠서 하면 refundedAmount가 누적된다.")
-        void partialRefundAccumulates() {
-            //given
-            Payment payment = Payment.create(1L, 1L, 10000L);
-            payment.approve();
-
-            //when
-            payment.partialRefund(3000L);
-            payment.partialRefund(4000L);
-
-            //then
-            assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.PARTIAL_CANCELLED);
-            assertThat(payment.getRefundedAmount()).isEqualTo(7000L);
-        }
-
-        @Test
-        @DisplayName("부분취소 누적 합이 amount와 같아지면 CANCELLED로 전이된다.")
-        void refundFromPartialCancelledWithFullyRefundedAmount() {
-            //given
-            Payment payment = Payment.create(1L, 1L, 10000L);
-            payment.approve();
-            payment.partialRefund(3000L);
-
-            //when
-            payment.partialRefund(3000L);
-            payment.partialRefund(4000L);
-
             assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.CANCELLED);
             assertThat(payment.getRefundedAmount()).isEqualTo(10000L);
         }
 
         @Test
-        @DisplayName("취소 금액이 null이거나 0 이하이면 예외가 발생한다.")
-        void partialRefundFailInvalidAmount() {
-            Payment payment = Payment.create(1L, 1L,10000L);
-            payment.approve();
-
-            assertThatThrownBy(() -> payment.partialRefund(null))
-                    .isInstanceOf(BusinessException.class);
-            assertThatThrownBy(() -> payment.partialRefund(0L))
-                    .isInstanceOf(BusinessException.class);
-            assertThatThrownBy(() -> payment.partialRefund(-10000L))
-                    .isInstanceOf(BusinessException.class);
-        }
-
-        @Test
-        @DisplayName("잔여 금액을 초과해서 취소하면 예외가 발생한다.")
-        void partialRefundFailInvalidRefundAmount() {
+        @DisplayName("REFUND_PENDING 상태에서 부분 금액으로 완료해도 상태는 CANCELLED가 된다.")
+        void completeRefundPartialAmount() {
             //given
             Payment payment = Payment.create(1L, 1L, 10000L);
             payment.approve();
-            payment.partialRefund(7000L);
+            payment.requestRefund();
 
-            //when & then
-            assertThatThrownBy(() -> payment.partialRefund(5000L))
-                    .isInstanceOf(BusinessException.class);
+            //when
+            payment.completeRefund(4000L);
 
+            //then
+            assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.CANCELLED);
+            assertThat(payment.getRefundedAmount()).isEqualTo(4000L);
         }
 
         @Test
-        @DisplayName("READY 상태에서 부분취소하면 예외가 발생한다.")
-        void readyFromPartialCancelled() {
+        @DisplayName("REFUND_PENDING 상태가 아니면 예외가 발생한다.")
+        void completeRefundInvalidStatus() {
+            //given
             Payment payment = Payment.create(1L, 1L, 10000L);
-            assertThatThrownBy(() -> payment.partialRefund(5000L))
-                    .isInstanceOf(BusinessException.class);
+            payment.approve(); // PAID 상태, requestRefund() 안 거침
+
+            //when & then
+            assertThatThrownBy(() -> payment.completeRefund(10000L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(PaymentErrorCode.INVALID_PAYMENT_STATUS);
+        }
+
+        @Test
+        @DisplayName("환불 금액이 null이거나 음수이면 예외가 발생한다.")
+        void completeRefundInvalidAmount() {
+            //given
+            Payment payment = Payment.create(1L, 1L, 10000L);
+            payment.approve();
+            payment.requestRefund();
+
+            //when & then
+            assertThatThrownBy(() -> payment.completeRefund(null))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(PaymentErrorCode.INVALID_REFUND_AMOUNT);
+            assertThatThrownBy(() -> payment.completeRefund(-1000L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(PaymentErrorCode.INVALID_REFUND_AMOUNT);
+        }
+
+        @Test
+        @DisplayName("환불 금액이 결제 금액을 초과하면 예외가 발생한다.")
+        void completeRefundExceedsAmount() {
+            //given
+            Payment payment = Payment.create(1L, 1L, 10000L);
+            payment.approve();
+            payment.requestRefund();
+
+            //when & then
+            assertThatThrownBy(() -> payment.completeRefund(10001L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(PaymentErrorCode.INVALID_REFUND_AMOUNT);
+        }
+    }
+
+    @Nested
+    @DisplayName("환불 처리 실패 롤백 (failRefund)")
+    class FailRefund {
+
+        @Test
+        @DisplayName("REFUND_PENDING 상태에서 실패 처리하면 PAID로 복귀한다.")
+        void failRefundRollback() {
+            //given
+            Payment payment = Payment.create(1L, 1L, 10000L);
+            payment.approve();
+            payment.requestRefund();
+
+            //when
+            payment.failRefund();
+
+            //then
+            assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.PAID);
+        }
+
+        @Test
+        @DisplayName("REFUND_PENDING 상태가 아니면 아무 변화 없이 무시한다.")
+        void failRefundIgnoredWhenNotPending() {
+            //given
+            Payment payment = Payment.create(1L, 1L, 10000L);
+            payment.approve(); // PAID 상태
+
+            //when
+            payment.failRefund();
+
+            //then
+            assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.PAID);
+        }
+
+        @Test
+        @DisplayName("이미 CANCELLED 상태여도 무시하고 예외를 던지지 않는다.")
+        void failRefundIgnoredWhenCancelled() {
+            //given
+            Payment payment = Payment.create(1L, 1L, 10000L);
+            payment.approve();
+            payment.requestRefund();
+            payment.completeRefund(10000L);
+
+            //when
+            payment.failRefund();
+
+            //then
+            assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.CANCELLED);
         }
     }
 }

@@ -3,7 +3,8 @@ package com.programmers.kdt.payment.service;
 import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.order.entity.Order;
 import com.programmers.kdt.order.repository.OrderRepository;
-import com.programmers.kdt.payment.client.*;
+import com.programmers.kdt.payment.client.pg.*;
+import com.programmers.kdt.payment.client.refund.*;
 import com.programmers.kdt.payment.dto.*;
 import com.programmers.kdt.payment.entity.Payment;
 import com.programmers.kdt.payment.entity.PaymentRefund;
@@ -12,13 +13,22 @@ import com.programmers.kdt.payment.exception.PaymentErrorCode;
 import com.programmers.kdt.payment.repository.PaymentRefundRepository;
 import com.programmers.kdt.payment.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PaymentServiceImpl implements PaymentService{
@@ -26,7 +36,11 @@ public class PaymentServiceImpl implements PaymentService{
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
     private final PaymentRefundRepository paymentRefundRepository;
+    private final RefundEventPublisher refundEventPublisher;
+    private final PerformanceClient performanceClient;
+    private final OrderClient orderClient;
     private final PgClient pgClient;
+
 
     // 결제 생성
     @Transactional
@@ -119,53 +133,61 @@ public class PaymentServiceImpl implements PaymentService{
                 .map(GetPaymentHistoryResponse::from);
     }
 
-    // 전액 환불
+    // 환불 요청(접수)
     @Transactional
     public RefundPaymentResponse refund(Long paymentId, RefundPaymentRequest request) {
         Payment payment = getPayment(paymentId);
 
-        // 환불금 계산
-        Long refundAmount = payment.getAmount() - payment.getRefundedAmount();
-
         try {
-            payment.refund();
+            payment.requestRefund();
             paymentRepository.saveAndFlush(payment);
         } catch(ObjectOptimisticLockingFailureException e) {
             throw new BusinessException(PaymentErrorCode.PAYMENT_CONCURRENT_MODIFICATION);
         }
 
+        refundEventPublisher.publish(new RefundRequestEvent(payment.getId(), request.reason(), LocalDateTime.now()));
 
-        try {
-            pgClient.cancel(new PgCancelCommand(payment.getPaymentKey(), refundAmount, request.reason()));
-        } catch (Exception e) {
-            throw new BusinessException(PaymentErrorCode.PG_REQUEST_FAILED); // 예외 → 롤백 → DB 상태 원복
-        }
-
-        paymentRefundRepository.save(PaymentRefund.create(payment.getId(), refundAmount, request.reason()));
         return RefundPaymentResponse.from(payment);
     }
 
-    // 부분 환불
-    @Transactional
-    public PartialRefundPaymentResponse partialRefund(Long paymentId, PartialRefundPaymentRequest request) {
-        Payment payment = getPayment(paymentId);
+    // 환불 처리(PG사 호출)
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW) // 기존 트랜잭션을 보류시키고 새로운 트랜잭션을 생성
+    public void onRefundRequested(RefundRequestEvent event) {
+        Payment payment = getPayment(event.paymentId());
 
         try {
-            payment.partialRefund(request.amount());
-            paymentRepository.saveAndFlush(payment); // 미리 flush를 통해 버전이 일치하는지 검증
-        } catch (ObjectOptimisticLockingFailureException e) { // 충돌 발생 시
-            throw new BusinessException(PaymentErrorCode.PAYMENT_CONCURRENT_MODIFICATION);
-        }
+            Long ticketId = orderClient.getTicketId(payment.getOrderId());
+            LocalDate performanceDate = performanceClient.getPerformanceDate(ticketId);
+            double refundRate = RefundPolicy.resolveRefundRate(performanceDate, LocalDate.now());
 
-        try {
-            pgClient.cancel(new PgCancelCommand(payment.getPaymentKey(), request.amount(), request.reason()));
+            if (refundRate == 0.0) {
+                payment.failRefund();
+                paymentRepository.save(payment);
+                log.warn("당일/이후 환불 요청으로 환불 불가 - paymentId={}", payment.getId());
+                return;
+            }
+
+            Long refundAmount = RefundPolicy.calculateRefundAmount(payment.getAmount(), refundRate);
+
+            PgCancelResult cancelResult = pgClient.cancel(
+                    new PgCancelCommand(payment.getPaymentKey(), refundAmount, event.reason()));
+
+            if (!cancelResult.success()) {
+                payment.failRefund();
+                paymentRepository.save(payment);
+                log.error("PG 취소 실패 - paymentId={}", payment.getId());
+                return;
+            }
+
+            paymentRefundRepository.save(PaymentRefund.create(payment.getId(), refundAmount, event.reason()));
+            payment.completeRefund(refundAmount);
         } catch (Exception e) {
-            throw new BusinessException(PaymentErrorCode.PG_REQUEST_FAILED); // 예외 → 롤백 → DB 상태 원복
+            payment.failRefund();
+            paymentRepository.save(payment);
+            log.error("환불 처리 중 예외 발생 - paymentId={}", payment.getId(), e);
         }
-
-        paymentRefundRepository.save(PaymentRefund.create(payment.getId(), request.amount(), request.reason()));
-
-        return PartialRefundPaymentResponse.from(payment);
     }
 
     // 환불 내역 조회

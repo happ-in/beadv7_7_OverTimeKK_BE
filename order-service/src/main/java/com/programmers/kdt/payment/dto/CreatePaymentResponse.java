@@ -1,8 +1,7 @@
 package com.programmers.kdt.payment.dto;
 
-import com.programmers.kdt.payment.client.PgReadyResult;
+import com.programmers.kdt.payment.client.pg.PgReadyResult;
 import com.programmers.kdt.payment.entity.Payment;
-import com.programmers.kdt.payment.entity.PaymentStatus;
 
 public record CreatePaymentResponse(
         Long paymentId,

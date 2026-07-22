@@ -65,7 +65,7 @@ public class Payment extends BaseTimeEntity {
         if (paymentStatus == PaymentStatus.PAID) {
             return; // 이미 결제된 경우 중복 이벤트 무시
         }
-        if (isReady()) {
+        if (!isReady()) {
             throw new BusinessException(PaymentErrorCode.INVALID_PAYMENT_STATUS, this.paymentStatus);
         }
         this.paymentStatus = PaymentStatus.PAID;
@@ -84,47 +84,48 @@ public class Payment extends BaseTimeEntity {
         if (paymentStatus == PaymentStatus.FAILED) {
             return; // 이미 취소된 경우 중복 이벤트 무시
         }
-        if (isReady()) {
+        if (!isReady()) {
             throw new BusinessException(PaymentErrorCode.INVALID_PAYMENT_STATUS, this.paymentStatus);
         }
         this.paymentStatus = PaymentStatus.FAILED;
     }
 
-    // 전액 취소 메서드 PAID -> CANCELLED
-    public void refund() {
-        if (paymentStatus == PaymentStatus.CANCELLED) {
-            return; // 이미 취소 완료된 상태, 중복 이벤트 무시
+    // 환불 요청 접수 (동기 단계 호출)
+    public void requestRefund() {
+        if (paymentStatus == PaymentStatus.REFUND_PENDING) {
+            throw new BusinessException(PaymentErrorCode.REFUND_ALREADY_IN_PROGRESS);
         }
-        if (isPaidOrPartialCancelled()) {
+        if (paymentStatus != PaymentStatus.PAID) {
             throw new BusinessException(PaymentErrorCode.INVALID_PAYMENT_STATUS, this.paymentStatus);
         }
-        partialRefund(amount - refundedAmount); // 부분환불에 로직 위임 -> refundedAmount 부분환불 로직에서만 변경
+        this.paymentStatus = PaymentStatus.REFUND_PENDING;
     }
 
-    // 부분 취소 메서드 PAID OR PARTIAL_CANCELLED -> PARTIAL_CANCELLED
-    public void partialRefund(Long cancelAmount) {
-        if (isPaidOrPartialCancelled()) {
+    // 환불 처리 완료 (비동기 컨슈머 호출)
+    public void completeRefund(Long refundAmount) {
+        if (paymentStatus != PaymentStatus.REFUND_PENDING) {
             throw new BusinessException(PaymentErrorCode.INVALID_PAYMENT_STATUS, this.paymentStatus);
         }
 
-        long remaining = amount - refundedAmount; // 남은 금액 = 결제금액 - 취소금액
-        if (cancelAmount == null || cancelAmount <= 0 || cancelAmount > remaining) {
-            throw new BusinessException(PaymentErrorCode.INVALID_REFUND_AMOUNT, refundedAmount, cancelAmount);
+        if (refundAmount == null || refundAmount < 0 || refundAmount > amount) {
+            throw new BusinessException(PaymentErrorCode.INVALID_REFUND_AMOUNT, amount, refundAmount);
         }
 
-        this.refundedAmount += cancelAmount;
-        this.paymentStatus = (this.refundedAmount.equals(amount))
-                ? PaymentStatus.CANCELLED // 환불금과 총액이 같은 경우
-                : PaymentStatus.PARTIAL_CANCELLED;
+        this.refundedAmount = refundAmount;
+        this.paymentStatus = PaymentStatus.CANCELLED;
+    }
+
+    // 환불 처리 실패(PG 실패, 공연 정보 조회 실패등 - 롤백)
+    public void failRefund() {
+        if (paymentStatus != PaymentStatus.REFUND_PENDING) {
+            return;
+        }
+        this.paymentStatus = PaymentStatus.PAID; // 실패 시 원상복귀
     }
 
     // READY 상태인지 판별
     private boolean isReady() {
-        return paymentStatus != PaymentStatus.READY;
+        return paymentStatus == PaymentStatus.READY;
     }
 
-    // PAID 또는 PARTIAL_CANCELLED 상태인지 판별
-    private boolean isPaidOrPartialCancelled() {
-        return paymentStatus != PaymentStatus.PAID && paymentStatus != PaymentStatus.PARTIAL_CANCELLED;
-    }
 }

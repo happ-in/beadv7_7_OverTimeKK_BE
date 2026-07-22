@@ -4,14 +4,12 @@ import com.programmers.kdt.payment.entity.Payment;
 
 public record RefundPaymentResponse(
         Long paymentId,
-        String status,
-        Long refundedAmount
+        String status
 ) {
     public static RefundPaymentResponse from(Payment payment) {
         return new RefundPaymentResponse(
                 payment.getId(),
-                payment.getPaymentStatus().name(),
-                payment.getRefundedAmount()
+                payment.getPaymentStatus().name()
         );
     }
 }
