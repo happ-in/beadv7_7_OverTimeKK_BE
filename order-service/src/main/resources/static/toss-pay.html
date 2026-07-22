@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body>
+<input id="orderId" placeholder="주문 orderId(Long)" />
+<input id="amount" placeholder="금액" />
+<button onclick="pay()">결제하기</button>
+
+<script src="https://js.tosspayments.com/v2/standard"></script>
+<script>
+    const clientKey = "test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq";
+    const tossPayments = TossPayments(clientKey);
+    const payment = tossPayments.payment({ customerKey: "tester-" + Date.now() });
+
+    async function pay() {
+        const orderId = Number(document.getElementById('orderId').value);
+        const amount = Number(document.getElementById('amount').value);
+
+        const res = await fetch("/api/payments/pay", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ orderId, amount })
+        });
+        const { data } = await res.json();
+
+        await payment.requestPayment({
+            method: "CARD",
+            amount: { value: data.amount, currency: "KRW" },
+            orderId: data.orderId,
+            orderName: "테스트 주문",
+            successUrl: `${window.location.origin}/toss-success.html?paymentId=${data.paymentId}`,
+            failUrl: `${window.location.origin}/toss-fail.html`
+        });
+    }
+</script>
+</body>
+</html>
