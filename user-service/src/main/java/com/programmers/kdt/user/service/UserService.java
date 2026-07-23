@@ -36,6 +36,7 @@ public class UserService {
     @Transactional
     public SignUpUserResponse signUpBusiness(SignUpBusinessRequest request) {
         validateDuplicate(request.username(), request.email());
+        validateDuplicateBusinessNumber(request.businessNumber());
 
         String encodedPassword = passwordEncoder.encode(request.password());
         User user = User.signUpBusiness(request.username(), request.email(), encodedPassword,
@@ -51,6 +52,12 @@ public class UserService {
         }
         if (userRepository.existsByEmail(email)) {
             throw new BusinessException(UserErrorCode.DUPLICATE_EMAIL);
+        }
+    }
+
+    private void validateDuplicateBusinessNumber(String businessNumber) {
+        if (userRepository.existsByBusinessNumber(businessNumber)) {
+            throw new BusinessException(UserErrorCode.DUPLICATE_BUSINESS_NUMBER);
         }
     }
 
