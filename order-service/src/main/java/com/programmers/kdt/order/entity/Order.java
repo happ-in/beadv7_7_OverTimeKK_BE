@@ -8,6 +8,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,6 +37,8 @@ public class Order extends BaseTimeEntity {
 
     @Column(nullable = false)
     private LocalDate orderDate;
+
+    private LocalDateTime cancelledAt;
 
 
     private Order(Long userId, List<OrderItem> items){
@@ -100,15 +103,26 @@ public class Order extends BaseTimeEntity {
         this.orderStatus = OrderStatus.EXPIRED;
     }
 
-    // 주문 취소 COMPLETED -> CANCELED
-    public void cancel(){
+    // 취소 가능한 주문인지 검증
+    public void validateCancel(){
         if(orderStatus == OrderStatus.CANCELLED){
-            return; // 이미 주문 취소된 상태, 중복 무시
+            throw new BusinessException(OrderErrorCode.ORDER_ALREADY_CANCEL);
         }
         if(orderStatus != OrderStatus.COMPLETED){
             throw new BusinessException(OrderErrorCode.ORDER_NOT_COMPLETED);
         }
+    }
+
+    // 주문 취소 COMPLETED -> CANCELED
+    public void cancel(){
+        validateCancel();
         this.orderStatus = OrderStatus.CANCELLED;
+        this.cancelledAt = LocalDateTime.now();
+    }
+
+    // 티켓 ID
+    public Long getTicketId(){
+        return items.getFirst().getTicketId();
     }
 
 }
