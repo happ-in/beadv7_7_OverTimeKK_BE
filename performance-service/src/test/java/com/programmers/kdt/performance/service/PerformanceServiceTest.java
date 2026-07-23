@@ -46,13 +46,13 @@ class PerformanceServiceTest {
     void 공연_등록_성공() {
         // given
         PerformanceRequest request = new PerformanceRequest(
-                "뮤지컬A", "설명", "120분",
+                "뮤지컬A", "설명", 120L,
                 LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31),
                 null, 1L);
         Long sellerId = 1L;
 
         Performance saved = Performance.createPerformance(
-                "뮤지컬A", "설명", "120분",
+                "뮤지컬A", "설명", 120L,
                 LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31),
                 null, sellerId, 1L);
         ReflectionTestUtils.setField(saved, "performanceId", 1L);   // @Id는 setter가 없어 테스트에서 주입
@@ -70,12 +70,12 @@ class PerformanceServiceTest {
     @Test
     void 공연_수정_성공() {
         Performance performance = Performance.createPerformance(
-                "뮤지컬A", "설명", "120분",
+                "뮤지컬A", "설명", 120L,
                 LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 1L);
         given(performanceRepository.findById(1L)).willReturn(Optional.of(performance));
 
         PerformanceRequest request = new PerformanceRequest(
-                "뮤지컬B", "수정설명", "130분",
+                "뮤지컬B", "수정설명", 130L,
                 LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), null, 2L);
 
         performanceService.updatePerformance(1L, request, 1L);
@@ -88,7 +88,7 @@ class PerformanceServiceTest {
     void 없는_공연_수정시_예외() {
         given(performanceRepository.findById(999L)).willReturn(Optional.empty());
         PerformanceRequest request = new PerformanceRequest(
-                "뮤지컬B", "설명", "130분",
+                "뮤지컬B", "설명", 130L,
                 LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), null, 2L);
 
         assertThatThrownBy(() -> performanceService.updatePerformance(999L, request, 1L))
@@ -99,12 +99,12 @@ class PerformanceServiceTest {
     @Test
     void 판매자_본인이_아니면_수정_예외() {
         Performance performance = Performance.createPerformance(
-                "뮤지컬A", "설명", "120분",
+                "뮤지컬A", "설명", 120L,
                 LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 1L);
         given(performanceRepository.findById(1L)).willReturn(Optional.of(performance));
 
         PerformanceRequest request = new PerformanceRequest(
-                "뮤지컬B", "설명", "130분",
+                "뮤지컬B", "설명", 130L,
                 LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), null, 2L);
 
         assertThatThrownBy(() -> performanceService.updatePerformance(1L, request, 999L))
@@ -115,7 +115,7 @@ class PerformanceServiceTest {
     @Test
     void 공연_삭제_성공() {
         Performance performance = Performance.createPerformance(
-                "뮤지컬A", "설명", "120분",
+                "뮤지컬A", "설명", 120L,
                 LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 1L);
         given(performanceRepository.findById(1L)).willReturn(Optional.of(performance));
 
@@ -139,7 +139,7 @@ class PerformanceServiceTest {
     @Test
     void 판매자_본인이_아니면_삭제_예외() {
         Performance performance = Performance.createPerformance(
-                "뮤지컬A", "설명", "120분",
+                "뮤지컬A", "설명", 120L,
                 LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 1L);
         given(performanceRepository.findById(1L)).willReturn(Optional.of(performance));
 
@@ -152,7 +152,7 @@ class PerformanceServiceTest {
     @Test
     void 공연_단건_조회_성공() {
         Performance performance = Performance.createPerformance(
-                "뮤지컬A", "설명", "120분",
+                "뮤지컬A", "설명", 120L,
                 LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 2L);
         given(performanceRepository.findById(1L)).willReturn(Optional.of(performance));
 
@@ -174,10 +174,10 @@ class PerformanceServiceTest {
     @Test
     void 공연_목록_조회_성공() {
         Performance a = Performance.createPerformance(
-                "뮤지컬A", "설명", "120분",
+                "뮤지컬A", "설명", 120L,
                 LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 1L);
         Performance b = Performance.createPerformance(
-                "뮤지컬B", "설명", "130분",
+                "뮤지컬B", "설명", 130L,
                 LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), null, 2L, 2L);
         given(performanceRepository.findAll()).willReturn(List.of(a, b));
 

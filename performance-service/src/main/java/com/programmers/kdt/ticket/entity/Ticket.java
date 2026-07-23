@@ -43,4 +43,15 @@ public class Ticket extends BaseTimeEntity {
     @Column(nullable = false)
     @ColumnDefault("'AVAILABLE'")
     private TicketStatus ticketStatus = TicketStatus.AVAILABLE;
+
+    public static Ticket create(Long performanceId, Long sessionNum, String zone, String seatRow, String seatNum, Long price) {
+        Ticket ticket = new Ticket();
+        ticket.performanceId = performanceId;
+        ticket.sessionNum = sessionNum;
+        ticket.zone = zone;
+        ticket.seatRow = seatRow;
+        ticket.seatNum = seatNum;
+        ticket.price = price;
+        return ticket;
+    }
 }

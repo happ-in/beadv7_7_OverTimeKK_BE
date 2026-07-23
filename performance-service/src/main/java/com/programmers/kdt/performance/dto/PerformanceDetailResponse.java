@@ -10,7 +10,7 @@ public record PerformanceDetailResponse(
         Long performanceId,
         String title,
         String description,
-        String runtime,
+        Long runtime,
         LocalDate startDate,
         LocalDate endDate,
         @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
