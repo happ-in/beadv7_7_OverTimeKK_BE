@@ -237,7 +237,7 @@ public class OrderServiceTest {
             // then
             assertThat(response).isNotNull();
             verify(order).validateCancel();
-            verify(paymentService).cancel(
+            verify(paymentService).refund(
                     eq(100L),
                     argThat(
                             cancelRequest ->
@@ -272,7 +272,7 @@ public class OrderServiceTest {
                     () -> orderService.cancelOrder(100L, request)
             )
                     .isSameAs(exception);
-            verify(paymentService, never()).cancel(any(), any());
+            verify(paymentService, never()).refund(any(), any());
             verify(order, never()).cancel();
             verifyNoInteractions(eventPublisher);
         }
@@ -293,7 +293,7 @@ public class OrderServiceTest {
 
             doThrow(exception)
                     .when(paymentService)
-                    .cancel(
+                    .refund(
                             eq(100L),
                             any()
                     );

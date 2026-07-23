@@ -11,12 +11,12 @@ import com.programmers.kdt.order.entity.OrderStatus;
 import com.programmers.kdt.order.event.OrderCancelledEvent;
 import com.programmers.kdt.order.exception.OrderErrorCode;
 import com.programmers.kdt.order.repository.OrderRepository;
-import com.programmers.kdt.payment.dto.CancelPaymentRequest;
+import com.programmers.kdt.payment.dto.RefundPaymentRequest;
 import com.programmers.kdt.payment.service.PaymentService;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -76,9 +76,9 @@ public class OrderService {
         order.validateCancel();
 
         // 결제 취소
-        paymentService.cancel(
+        paymentService.refund(
                 order.getOrderId(),
-                new CancelPaymentRequest(request.reason())); // paymentService의 cancel메서드 파라미터 :orderId로 변경
+                new RefundPaymentRequest(request.reason())); // paymentService의 cancel메서드 파라미터 :orderId로 변경
 
         // 결제 취소 성공 -> 주문 취소 완료
         order.cancel();
