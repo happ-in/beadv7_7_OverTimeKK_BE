@@ -2,6 +2,7 @@ package com.programmers.kdt.payment.entity;
 
 import com.programmers.kdt.common.entity.BaseTimeEntity;
 import com.programmers.kdt.common.exception.BusinessException;
+import com.programmers.kdt.payment.entity.converter.PaymentKeyConverter;
 import com.programmers.kdt.payment.exception.PaymentErrorCode;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -34,8 +35,12 @@ public class Payment extends BaseTimeEntity {
     @Column(name = "refunded_amount", nullable = false)
     private Long refundedAmount;
 
+    @Convert(converter = PaymentKeyConverter.class)
     @Column(name = "payment_key")
     private String paymentKey; // PG 참조값
+
+    @Column(name = "pg_order_id")
+    private String pgOrderId; // PG사 주문번호
 
     @Version
     @Column(name = "version", nullable = false)
@@ -71,12 +76,16 @@ public class Payment extends BaseTimeEntity {
         this.paymentStatus = PaymentStatus.PAID;
     }
 
-    //PG사 키 등록
+    // PG사 키 등록
     public void assignPaymentKey(String paymentKey) {
         if (paymentKey == null || paymentKey.isBlank()) {
             throw new BusinessException(PaymentErrorCode.INVALID_PAYMENT_KEY, paymentKey);
         }
         this.paymentKey = paymentKey;
+    }
+
+    public void assignPgOrderId(String pgOrderId) {
+        this.pgOrderId = pgOrderId;
     }
 
     // 결제 실패 메서드 READY -> FAILED
