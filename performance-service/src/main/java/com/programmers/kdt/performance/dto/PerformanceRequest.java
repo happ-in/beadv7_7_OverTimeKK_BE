@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 public record PerformanceRequest(
         @NotBlank String title,
         String description,             // nullable
-        @NotBlank String runtime,
+        @NotNull Long runtime,
         @NotNull LocalDate startDate,
         @NotNull LocalDate endDate,
         @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")

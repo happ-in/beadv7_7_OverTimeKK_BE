@@ -30,12 +30,21 @@ public class PerformanceSeatPrice extends BaseTimeEntity {
     @JoinColumn(name = "performance_id", nullable = false)
     private Performance performance;
 
-    @Column(nullable = false)
-    private Long hallId;
+//    @Column(nullable = false)
+//    private Long hallId;
 
     @Column(nullable = false)
     private String zone;
 
     @Column(nullable = false)
     private Long price;
+
+    public static PerformanceSeatPrice createInitial(Performance performance, String zone, Long price) {
+        PerformanceSeatPrice seatPrice = new PerformanceSeatPrice();
+        seatPrice.performance = performance;
+        seatPrice.zone = zone;
+        seatPrice.price = price;
+        return seatPrice;
+    }
+
 }

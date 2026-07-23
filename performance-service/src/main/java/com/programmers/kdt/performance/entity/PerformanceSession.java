@@ -44,6 +44,15 @@ public class PerformanceSession extends BaseTimeEntity {
         return session;
     }
 
+    public static PerformanceSession createInitial(Long sessionNum, Performance performance, String actor, LocalDateTime performanceStartAt) {
+        PerformanceSession session = new PerformanceSession();
+        session.performanceSessionId = new PerformanceSessionId(sessionNum, performance.getPerformanceId());
+        session.performance = performance;
+        session.actor = actor;
+        session.performanceStartAt = performanceStartAt;
+        return session;
+    }
+
     public void changePerformanceSession(String actor, LocalDateTime performanceStartAt) {
         validPerformanceSessionInput(actor, performanceStartAt);
         validPossibleToChangePerformanceSessionTime(performanceStartAt);

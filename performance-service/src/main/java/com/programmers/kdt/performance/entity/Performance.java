@@ -3,13 +3,14 @@ package com.programmers.kdt.performance.entity;
 import com.programmers.kdt.common.entity.BaseTimeEntity;
 import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.performance.exception.PerformanceErrorCode;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Column;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -20,34 +21,38 @@ public class Performance extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "performance_id")
     private Long performanceId;
 
-    @Column(nullable = false)
+    @Column(name = "title", nullable = false)
     private String title;
 
+    @Column(name = "description")
     private String description;
 
-    @Column(nullable = false)
-    private String runtime;
+    @Column(name = "runtime", nullable = false)
+    private Long runtime;
 
-    @Column(nullable = false)
+    @Column(name = "start_date", nullable = false)
     private LocalDate startDate;
 
-    @Column(nullable = false)
+    @Column(name = "end_date", nullable = false)
     private LocalDate endDate;
 
     // 티켓 오픈 시각 (ERD: 티켓오픈시간 LocalDateTime NULL)
+    @Column(name = "ticket_open_at")
     private LocalDateTime ticketOpenAt;
 
     // user-service의 판매자(User)를 ID로만 참조
-    @Column(nullable = false)
+    @Column(name = "seller_id", nullable = false)
     private Long sellerId;
 
-    @Column(nullable = false)
+    @Column(name = "hall_id", nullable = false)
     private Long hallId;
 
+    private PerformanceStatus performanceStatus = PerformanceStatus.UPCOMING;
 
-    public static Performance createPerformance(String title, String description, String runtime,
+    public static Performance createPerformance(String title, String description, Long runtime,
                                      LocalDate startDate, LocalDate endDate, LocalDateTime ticketOpenAt,
                                      Long sellerId, Long hallId) {
         validatePerformance(startDate, endDate, ticketOpenAt);
@@ -60,12 +65,13 @@ public class Performance extends BaseTimeEntity {
         performance.ticketOpenAt = ticketOpenAt;
         performance.sellerId = sellerId;
         performance.hallId = hallId;
+        performance.performanceStatus = PerformanceStatus.UPCOMING;
         return performance;
     }
 
     // TODO: 티켓 오픈(ticketOpenAt) 이후에는 판매자가 좌석가(PerformanceSeatPrice) 변경 불가.
     //  좌석가격 수정 로직 추후 추가 및 검증 필요
-    public void updatePerformance(String title, String description, String runtime,
+    public void updatePerformance(String title, String description, Long runtime,
                        LocalDate startDate, LocalDate endDate, LocalDateTime ticketOpenAt, Long hallId) {
         validatePerformance(startDate, endDate, ticketOpenAt);
         this.title = title;
