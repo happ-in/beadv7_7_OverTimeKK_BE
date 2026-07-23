@@ -3,6 +3,7 @@ package com.programmers.kdt.payment.controller;
 import com.programmers.kdt.common.response.ApiResponse;
 import com.programmers.kdt.payment.dto.*;
 import com.programmers.kdt.payment.service.PaymentService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -23,7 +24,7 @@ public class PaymentController {
 
     // 결제 요청
     @PostMapping("/pay")
-    public ResponseEntity<ApiResponse<CreatePaymentResponse>> pay(@RequestBody CreatePaymentRequest request) {
+    public ResponseEntity<ApiResponse<CreatePaymentResponse>> pay(@Valid @RequestBody CreatePaymentRequest request) {
         CreatePaymentResponse response = paymentService.pay(request);
         return ResponseEntity.created(URI.create("/api/payments/" + response.paymentId())).body(ApiResponse.success(response));
     }

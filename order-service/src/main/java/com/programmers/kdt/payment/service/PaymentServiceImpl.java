@@ -72,6 +72,7 @@ public class PaymentServiceImpl implements PaymentService{
             throw new BusinessException(PaymentErrorCode.PG_REQUEST_FAILED);
         }
 
+        payment.assignPgOrderId(readyResult.orderId());
         paymentRepository.save(payment);
 
         return CreatePaymentResponse.of(payment, readyResult);
@@ -93,7 +94,7 @@ public class PaymentServiceImpl implements PaymentService{
         try {
             approveResult = pgClient.approve(new PgApproveCommand(
                     payment.getPaymentKey(),
-                    PgOrderIdFormatter.format(payment.getOrderId()),
+                    payment.getPgOrderId(),
                     payment.getAmount()));
         } catch (PgClientException e) {
             log.error("토스 결제 승인 실패 - paymentId={}, pgCode={}, pgMessage={}", paymentId, e.getPgErrorCode(), e.getMessage());
