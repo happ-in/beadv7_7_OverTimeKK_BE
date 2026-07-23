@@ -11,7 +11,8 @@ public enum OrderErrorCode implements ErrorCode {
     ORDER_ITEMS_REQUIRED(HttpStatus.BAD_REQUEST, "ORD400_004", "주문할 상품이 없습니다."),
     ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "ORD404_001", "주문을 찾을 수 없습니다."),
     ORDER_NOT_PENDING(HttpStatus.CONFLICT, "ORD409_001", "결제 대기 상태 주문만 완료할 수 있습니다."),
-    ORDER_NOT_COMPLETED(HttpStatus.CONFLICT, "ORD409_002", "완료된 주문만 취소할 수 있습니다.");
+    ORDER_NOT_COMPLETED(HttpStatus.CONFLICT, "ORD409_002", "완료된 주문만 취소할 수 있습니다."),
+    ORDER_ALREADY_CANCEL(HttpStatus.CONFLICT, "ORD409_003", "이미 취소된 주문입니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

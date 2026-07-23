@@ -1,62 +1,112 @@
 package com.programmers.kdt.order.service;
 
 import com.programmers.kdt.common.exception.BusinessException;
-import com.programmers.kdt.order.exception.OrderErrorCode;
-import com.programmers.kdt.order.dto.CreateOrderRequest;
-import com.programmers.kdt.order.dto.CreateOrderResponse;
+import com.programmers.kdt.order.client.TicketClient;
+import com.programmers.kdt.order.client.TicketHoldResult;
+import com.programmers.kdt.order.client.TicketInfo;
+import com.programmers.kdt.order.dto.*;
 import com.programmers.kdt.order.entity.Order;
+import com.programmers.kdt.order.entity.OrderItem;
+import com.programmers.kdt.order.entity.OrderStatus;
+import com.programmers.kdt.order.event.OrderCancelledEvent;
+import com.programmers.kdt.order.exception.OrderErrorCode;
 import com.programmers.kdt.order.repository.OrderRepository;
-import jakarta.transaction.Transactional;
+import com.programmers.kdt.payment.dto.CancelPaymentRequest;
+import com.programmers.kdt.payment.service.PaymentService;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
 
 @Service
 @RequiredArgsConstructor
 public class OrderService {
-    OrderRepository orderRepository;
+    private final OrderRepository orderRepository;
+    private final TicketClient ticketClient;
+    private final PaymentService paymentService;
+    private final ApplicationEventPublisher eventPublisher;
 
-    // 주문 생성
+    // 주문 요청
     @Transactional
     public CreateOrderResponse createOrder(CreateOrderRequest request) {
-        // 1. 사용자 확인
+        // 존재하는 좌석인지, 좌석 점유 여부 확인 및 점유 요청
+       TicketHoldResult holdTicket = ticketClient.holdSeat(request.ticketId(), request.userId()) ; // 추후 ticketService
 
-        // 2. 좌석 점유 확인 및 요청
-        // Ticket ticket = ticketService.holdSeat(request.ticketId(), request.userId()); // Ticket 반환
+        // 주문 항목 생성 - 현재는 티켓 1매만 가능
+        OrderItem item = OrderItem.create(holdTicket.ticketId(), holdTicket.ticketPrice());
 
-        // 3. 주문 생성
-        // Order order = Order.create(request.userId(), );
-        // 4. 주문 저장
-        // orderRepository.save(order);
+        // 주문 생성 및 저장
+        Order order = Order.create(request.userId(), List.of(item));
+        Order savedOrder = orderRepository.save(order);
 
-        // 4. 결제 생성 요청
-        //paymentService.create();
-        return null;
+        return CreateOrderResponse.from(savedOrder);
     }
+
     // 주문 완료
+    @Transactional
     public void completeOrder(Long orderId){
         Order order = findOrder(orderId);
         order.complete();
     }
 
     // 주문 만료
-    public void expiredOrder(Long orderId){
-        Order order = findOrder(orderId);
-        order.expire();
+    @Transactional
+    public void expireOrders(){
+        LocalDateTime cutoff = LocalDateTime.now().minusMinutes(10);
+
+        List<Order> orders = orderRepository.findAllByOrderStatusAndCreatedAtLessThanEqual(
+                OrderStatus.PENDING,
+                cutoff
+        );
+        for(Order order : orders){
+            order.expire();
+        }
     }
 
     // 주문 취소
     @Transactional
-    public void cancelOrder(Long orderId) {
-        // 1. 주문  조회
+    public CancelOrderResponse cancelOrder(Long orderId, CancelOrderRequest request) {
         Order order = findOrder(orderId);
 
-        // 2. 결제 취소
-        // paymentService.cancel(orderId);
-        // 3. 주문 취소
+        // 취소 가능한 주문인지 검증
+        order.validateCancel();
+
+        // 결제 취소
+        paymentService.cancel(
+                order.getOrderId(),
+                new CancelPaymentRequest(request.reason())); // paymentService의 cancel메서드 파라미터 :orderId로 변경
+
+        // 결제 취소 성공 -> 주문 취소 완료
         order.cancel();
 
-        // 4. 5분 뒤, 좌석 점유 해제 예약
-        // ticketServcie.scheduleRelease(ticketId); -> userId도 함께 보내줘야 되는지
+        // 좌석 점유 해제 이벤트 발행
+        eventPublisher.publishEvent(
+                new OrderCancelledEvent(
+                        orderId,
+                        order.getTicketId(),
+                        1L) // *** 추후 수정
+        );
+
+        return CancelOrderResponse.from(order);
+    }
+
+    // 주문 내역 조회
+    @Transactional(readOnly = true)
+    public List<GetOrderHistoryResponse> getOrderHistory(Long userId){
+        List<Order> orderHistory = orderRepository.findByUserId(userId);
+
+        // 공연장 -> ticketId 조회해서 가져오기
+        return orderHistory.stream()
+                .map(order -> {
+                    Long ticketId = order.getTicketId();
+                    TicketInfo ticketInfo = ticketClient.getTicket(ticketId);
+                    return GetOrderHistoryResponse.from(order, ticketInfo);
+                })
+                .toList();
     }
 
     private Order findOrder(Long orderId){
@@ -64,4 +114,5 @@ public class OrderService {
                 .orElseThrow(()->
                         new BusinessException(OrderErrorCode.ORDER_NOT_FOUND));
     }
+
 }
