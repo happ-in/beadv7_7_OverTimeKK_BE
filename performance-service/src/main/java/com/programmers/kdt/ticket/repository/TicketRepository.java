@@ -37,5 +37,27 @@ select p.performanceId
 """)
     int issueTicket(@Param("performanceId") Long performanceId, @Param("ticketStatus")TicketStatus status);
 
+    @Modifying
+    @Query("""
+insert into Ticket (performanceId, sessionNum, zone, seatRow, seatNum, price, ticketStatus, createdAt, modifiedAt)
+select p.performanceId
+     , :sessionNum
+     , s.zone
+     , s.seatRow
+     , s.seatNum
+     , psp.price
+     , :ticketStatus
+     , local_datetime
+     , local_datetime 
+  from Performance p
+     , PerformanceSeatPrice psp
+     , Seat s
+ where p.performanceId = psp.performance.performanceId
+   and p.hallId = s.hall.hallId
+   and psp.zone = s.zone
+   and p.performanceId = :performanceId
+""")
+    int issueAdditionalTickets(@Param("performanceId") Long performanceId, @Param("sessionNum") Long sessionNum, @Param("ticketStatus") TicketStatus status);
 
+    void deleteByPerformanceIdAndSessionNum(Long performanceId, Long sessionNum);
 }
