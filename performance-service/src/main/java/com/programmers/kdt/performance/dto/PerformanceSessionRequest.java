@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 
 public record PerformanceSessionRequest(
         @NotNull(message = "회차정보 입력은 필수입니다.")
-        Long sessionId,
+        Long sessionNum,
         @NotNull(message = "공연정보 입력은 필수입니다.")
         Long performanceId,
         @NotBlank(message = "배우 입력은 필수입니다.")
@@ -25,7 +25,7 @@ public record PerformanceSessionRequest(
 
     public PerformanceSession toEntity(Performance performance) {
         return PerformanceSession.create(
-                new PerformanceSessionId(sessionId, performanceId),
+                new PerformanceSessionId(sessionNum, performanceId),
                 performance,
                 actor,
                 performanceStartAt);
