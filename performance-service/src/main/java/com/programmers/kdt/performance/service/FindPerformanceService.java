@@ -9,7 +9,7 @@ import com.programmers.kdt.performance.entity.PerformanceStatus;
 import com.programmers.kdt.performance.exception.PerformanceErrorCode;
 import com.programmers.kdt.performance.repository.PerformanceRepository;
 import com.programmers.kdt.venue.entity.Hall;
-import com.programmers.kdt.venue.exception.VenueException;
+import com.programmers.kdt.venue.exception.VenueErrorCode;
 import com.programmers.kdt.venue.repository.HallRepository;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
@@ -55,7 +55,7 @@ public class FindPerformanceService {
         List<FindPerformanceResponse> responses = new ArrayList<>();
         for (Performance performance : performances) {
             Hall hall = hallRepository.findById(performance.getHallId())
-                    .orElseThrow(() -> new BusinessException(VenueException.HALL_INFORMATION_NOT_FOUND));
+                    .orElseThrow(() -> new BusinessException(VenueErrorCode.HALL_INFORMATION_NOT_FOUND));
 
             FindPerformanceResponse response = new FindPerformanceResponse(
                     performance.getPerformanceId(),

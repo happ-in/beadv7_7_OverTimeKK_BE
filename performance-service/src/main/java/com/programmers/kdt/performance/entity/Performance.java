@@ -53,8 +53,8 @@ public class Performance extends BaseTimeEntity {
     private PerformanceStatus performanceStatus = PerformanceStatus.UPCOMING;
 
     public static Performance createPerformance(String title, String description, Long runtime,
-                                     LocalDate startDate, LocalDate endDate, LocalDateTime ticketOpenAt,
-                                     Long sellerId, Long hallId) {
+                                                LocalDate startDate, LocalDate endDate, LocalDateTime ticketOpenAt,
+                                                Long sellerId, Long hallId) {
         validatePerformance(startDate, endDate, ticketOpenAt);
         Performance performance = new Performance();
         performance.title = title;
@@ -72,7 +72,7 @@ public class Performance extends BaseTimeEntity {
     // TODO: 티켓 오픈(ticketOpenAt) 이후에는 판매자가 좌석가(PerformanceSeatPrice) 변경 불가.
     //  좌석가격 수정 로직 추후 추가 및 검증 필요
     public void updatePerformance(String title, String description, Long runtime,
-                       LocalDate startDate, LocalDate endDate, LocalDateTime ticketOpenAt, Long hallId) {
+                                  LocalDate startDate, LocalDate endDate, LocalDateTime ticketOpenAt, Long hallId) {
         validatePerformance(startDate, endDate, ticketOpenAt);
         this.title = title;
         this.description = description;
