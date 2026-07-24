@@ -1,5 +1,5 @@
 package com.programmers.kdt.order.entity;
 
 public enum OrderStatus {
-    PENDING, EXPIRED, CANCELLED, COMPLETED
+    PENDING, EXPIRED, PAYMENT_STARTED, COMPLETED, CANCELLED
 }

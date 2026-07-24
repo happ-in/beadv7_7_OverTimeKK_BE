@@ -6,6 +6,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -13,6 +14,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class OrderTest {
+
+    private final LocalDateTime expiresAt =
+            LocalDateTime.now().plusMinutes(10);
 
     private List<OrderItem> createItems(){
         return List.of(
@@ -34,7 +38,7 @@ public class OrderTest {
             List<OrderItem> items = createItems();
 
             // when
-            Order order = Order.create(userId, items);
+            Order order = Order.create(userId, items, expiresAt);
 
             // then
             assertThat(order.getUserId()).isEqualTo(userId);
@@ -45,7 +49,7 @@ public class OrderTest {
         @Test
         @DisplayName("주문 항목 목록이 null이면 예외가 발생한다.")
         void createOrderNullOrderItem(){
-            assertThatThrownBy(()-> Order.create(1L, null))
+            assertThatThrownBy(() -> Order.create(1L, null, expiresAt))
                     .isInstanceOfSatisfying(
                             BusinessException.class,
                             exception ->{
@@ -58,7 +62,7 @@ public class OrderTest {
         @Test
         @DisplayName("주문 항목 목록이 비어있으면 예외가 발생한다.")
         void createOrderEmptyOrderItem(){
-            assertThatThrownBy(() -> Order.create(1L, List.of()))
+            assertThatThrownBy(() -> Order.create(1L, List.of(), expiresAt))
                     .isInstanceOfSatisfying(
                             BusinessException.class,
                             exception -> {
@@ -77,7 +81,7 @@ public class OrderTest {
             items.add(null);
 
             // when & then
-            assertThatThrownBy(() -> Order.create(1L, items))
+            assertThatThrownBy(() -> Order.create(1L, items, expiresAt))
                     .isInstanceOfSatisfying(
                             BusinessException.class,
                             exception -> {
@@ -93,10 +97,11 @@ public class OrderTest {
     class CompleteOrder{
 
         @Test
-        @DisplayName("PENDING 상태에서 주문 완료되면 COMPLETE 상태로 전이된다.")
+        @DisplayName("PAYMENT_STARTED 상태에서 주문 완료되면 COMPLETED 상태로 전이된다.")
         void completeOrder() {
             // given
-            Order order = Order.create(1L, createItems());
+            Order order = Order.create(1L, createItems(), expiresAt);
+            order.startPayment(expiresAt.minusSeconds(1));
 
             // when
             order.complete();
@@ -106,10 +111,11 @@ public class OrderTest {
         }
 
         @Test
-        @DisplayName("이미 COMPLTETE 상태면 예외 없이 무시해도 된다.")
+        @DisplayName("이미 COMPLETED 상태면 예외 없이 무시해도 된다.")
         void ignoreAlreadyCompleted(){
             // given
-            Order order = Order.create(1L, createItems());
+            Order order = Order.create(1L, createItems(), expiresAt);
+            order.startPayment(expiresAt.minusSeconds(1));
             order.complete();
 
             // when & then
@@ -122,7 +128,7 @@ public class OrderTest {
         @DisplayName("EXPIRED 상태에서 완료하면 예외가 발생한다.")
         void failToCompleteExpiredOrder(){
             // given
-            Order order = Order.create(1L, createItems());
+            Order order = Order.create(1L, createItems(), expiresAt);
             order.expire();
 
             // when & then
@@ -131,7 +137,7 @@ public class OrderTest {
                             BusinessException.class,
                             exception -> {
                                 assertThat(exception.getErrorCode())
-                                        .isEqualTo(OrderErrorCode.ORDER_NOT_PENDING);
+                                        .isEqualTo(OrderErrorCode.ORDER_NOT_PAYMENT_STARTED);
                             });
 
         }
@@ -145,7 +151,7 @@ public class OrderTest {
         @DisplayName("PENDING 상태에서 만료 시간이 지나면 EXPIRED로 상태가 전이된다.")
         void expireOrder(){
             // given
-            Order order = Order.create(1L, createItems());
+            Order order = Order.create(1L, createItems(), expiresAt);
 
             // when
             order.expire();
@@ -158,7 +164,7 @@ public class OrderTest {
         @DisplayName("이미 EXPIRED 상태면 예외 없이 무시해도 된다.")
         void ignoreAlreadyExpired(){
             // given
-            Order order = Order.create(1L, createItems());
+            Order order = Order.create(1L, createItems(), expiresAt);
             order.expire();
 
             // when
@@ -172,7 +178,8 @@ public class OrderTest {
         @DisplayName("COMPLETED 상태에서 만료하면 예외가 발생한다.")
         void failToExpireCompletedOrder() {
             // given
-            Order order = Order.create(1L, createItems());
+            Order order = Order.create(1L, createItems(), expiresAt);
+            order.startPayment(expiresAt.minusSeconds(1));
             order.complete();
 
             // when & then
@@ -188,7 +195,8 @@ public class OrderTest {
         @DisplayName("CANCELLED 상태에서 만료하면 예외가 발생한다.")
         void failToExpireCancelledOrder() {
             // given
-            Order order = Order.create(1L, createItems());
+            Order order = Order.create(1L, createItems(), expiresAt);
+            order.startPayment(expiresAt.minusSeconds(1));
             order.complete();
             order.cancel();
 
@@ -211,7 +219,8 @@ public class OrderTest {
         @DisplayName("COMPLETED 상태에서 취소하면 CANCELLED 상태로 전이된다.")
         void cancelOrder() {
             // given
-            Order order = Order.create(1L, createItems());
+            Order order = Order.create(1L, createItems(), expiresAt);
+            order.startPayment(expiresAt.minusSeconds(1));
             order.complete();
 
             // when
@@ -223,26 +232,28 @@ public class OrderTest {
         }
 
         @Test
-        @DisplayName("이미 CANCLED 상태면 예외 없이 무시해도 된다.")
-        void ignoreAlreadyCancelled() {
+        @DisplayName("이미 CANCELLED 상태에서 다시 취소하면 예외가 발생한다.")
+        void failToCancelAlreadyCancelled() {
             // given
-            Order order = Order.create(1L, createItems());
+            Order order = Order.create(1L, createItems(), expiresAt);
+            order.startPayment(expiresAt.minusSeconds(1));
             order.complete();
             order.cancel();
 
-            // when
-            order.cancel();
-
-            // then
-            assertThat(order.getOrderStatus())
-                    .isEqualTo(OrderStatus.CANCELLED);
+            // when & then
+            assertThatThrownBy(order::cancel)
+                    .isInstanceOfSatisfying(
+                            BusinessException.class,
+                            exception -> assertThat(exception.getErrorCode())
+                                    .isEqualTo(OrderErrorCode.ORDER_ALREADY_CANCELED)
+                    );
         }
 
         @Test
         @DisplayName("PENDING 상태에서 취소하면 예외가 발생한다.")
         void failToCancelPendingOrder() {
             // given
-            Order order = Order.create(1L, createItems());
+            Order order = Order.create(1L, createItems(), expiresAt);
 
             // when & then
             assertThatThrownBy(order::cancel)
@@ -257,7 +268,7 @@ public class OrderTest {
         @DisplayName("EXPIRED 상태에서 취소하면 예외가 발생한다.")
         void failToCancelExpiredOrder() {
             // given
-            Order order = Order.create(1L, createItems());
+            Order order = Order.create(1L, createItems(), expiresAt);
             order.expire();
 
             // when & then

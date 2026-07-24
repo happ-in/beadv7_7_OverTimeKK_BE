@@ -1,7 +1,10 @@
 package com.programmers.kdt.order.client;
 
+import java.time.LocalDateTime;
+
 public record TicketHoldResult(
         Long ticketId,
-        Long ticketPrice
+        Long ticketPrice,
+        LocalDateTime holdExpiresAt
 ) {
 }
