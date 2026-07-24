@@ -5,19 +5,18 @@ import com.programmers.kdt.performance.dto.RegisterPerformanceRequest;
 import com.programmers.kdt.performance.entity.Performance;
 import com.programmers.kdt.performance.entity.PerformanceSeatPrice;
 import com.programmers.kdt.performance.entity.PerformanceSession;
+import com.programmers.kdt.performance.entity.PerformanceStatus;
 import com.programmers.kdt.performance.repository.PerformanceRepository;
 import com.programmers.kdt.performance.repository.PerformanceSeatPriceRepository;
 import com.programmers.kdt.performance.repository.PerformanceSessionRepository;
-import com.programmers.kdt.ticket.entity.Ticket;
+import com.programmers.kdt.ticket.entity.TicketStatus;
+import com.programmers.kdt.ticket.exception.TicketErrorCode;
 import com.programmers.kdt.ticket.repository.TicketRepository;
-import com.programmers.kdt.venue.entity.Seat;
-import com.programmers.kdt.venue.exception.VenueException;
-import com.programmers.kdt.venue.repository.SeatRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -27,7 +26,6 @@ public class PerformanceV2Service {
     private final PerformanceRepository performanceRepository;
     private final PerformanceSessionRepository sessionRepository;
     private final PerformanceSeatPriceRepository seatPriceRepository;
-    private final SeatRepository seatRepository;
     private final TicketRepository ticketRepository;
 
     @Transactional
@@ -44,28 +42,15 @@ public class PerformanceV2Service {
         seatPriceRepository.saveAll(seatPrices);
 
         // 4. Ticket
-        List<Ticket> tickets = new ArrayList<>();
-        for (PerformanceSeatPrice seatPrice : seatPrices) {
-            List<Seat> seats = seatRepository.findByHall_HallIdAndZone(performance.getHallId(), seatPrice.getZone());
-
-            for (PerformanceSession session : sessions) {
-                if (seats.isEmpty()) {
-                    throw new BusinessException(VenueException.SEAT_INFORMATION_NOT_FOUND, performance.getHallId());
-                }
-
-                for (Seat seat : seats) {
-                    Ticket ticket = Ticket.create(
-                            performance.getPerformanceId(),
-                            session.getPerformanceSessionId().getSessionNum(),
-                            seat.getZone(),
-                            seat.getSeatRow(),
-                            seat.getSeatNum(),
-                            seatPrice.getPrice()
-                            );
-                    tickets.add(ticket);
-                }
-            }
+        // TODO : 이벤트로 분리하기
+        int issueTicketCount = ticketRepository.issueTicket(performance.getPerformanceId(), TicketStatus.AVAILABLE);
+        if (issueTicketCount <= 0) {
+            throw new BusinessException(TicketErrorCode.TICKET_ISSUE_FAILED);
         }
-        ticketRepository.saveAll(tickets);
+    }
+
+    @Transactional
+    public int closedPerformance() {
+        return performanceRepository.updateExpiredPerformances(PerformanceStatus.CLOSED, LocalDate.now());
     }
 }
