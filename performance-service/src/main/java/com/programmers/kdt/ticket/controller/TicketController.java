@@ -1,5 +1,4 @@
 package com.programmers.kdt.ticket.controller;
-
 import com.programmers.kdt.common.response.ApiResponse;
 import com.programmers.kdt.ticket.dto.CheckTicketHoldAvailableRequest;
 import com.programmers.kdt.ticket.dto.CheckTicketHoldAvailableResponse;
