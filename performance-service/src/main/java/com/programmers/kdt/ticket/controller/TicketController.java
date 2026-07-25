@@ -1,11 +1,12 @@
 package com.programmers.kdt.ticket.controller;
+
 import com.programmers.kdt.common.response.ApiResponse;
 import com.programmers.kdt.ticket.dto.CheckTicketHoldAvailableRequest;
 import com.programmers.kdt.ticket.dto.CheckTicketHoldAvailableResponse;
 import com.programmers.kdt.ticket.dto.CreateStandbyResponse;
 import com.programmers.kdt.ticket.dto.SessionStartDateResponse;
 import com.programmers.kdt.ticket.dto.StandbyTicketRequest;
-import com.programmers.kdt.ticket.service.TicketServiceImpl;
+import com.programmers.kdt.ticket.service.TicketService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class TicketController {
 
-    private final TicketServiceImpl ticketService;
+    private final TicketService ticketService;
 
     @PostMapping("/standby")
     public CreateStandbyResponse issueStandby(

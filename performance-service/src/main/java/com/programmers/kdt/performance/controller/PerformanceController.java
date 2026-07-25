@@ -38,12 +38,12 @@ public class PerformanceController {
         return ApiResponse.success(performanceService.updatePerformance(performanceId, request, sellerId));
     }
 
-    @GetMapping("/{performanceId}")
+    @GetMapping("/detail/{performanceId}")
     public ApiResponse<PerformanceDetailResponse> getPerformance(@PathVariable Long performanceId) {
         return ApiResponse.success(performanceService.getPerformanceDetail(performanceId));
     }
 
-    @GetMapping
+    @GetMapping("/detail")
     public ApiResponse<List<PerformanceDetailResponse>> getPerformances() {
         return ApiResponse.success(performanceService.getPerformances());
     }

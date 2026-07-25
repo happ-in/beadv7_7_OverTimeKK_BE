@@ -13,17 +13,17 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/find/performances")
+@RequestMapping("/api/performances")
 @RequiredArgsConstructor
 public class FindPerformanceController {
 
     private final FindPerformanceService findPerformanceService;
 
     @GetMapping
-    public ApiResponse<List<FindPerformanceResponse>> findPerformanceByStatus(
+    public ApiResponse<List<FindPerformanceResponse>> findPerformances(
             @RequestParam(name = "status", required = false) PerformanceStatus status,
             @RequestParam(name = "page", defaultValue = "1") int page) {
-        List<FindPerformanceResponse> performances = findPerformanceService.findPerformancesByStatus(status, page);
+        List<FindPerformanceResponse> performances = findPerformanceService.findPerformances(status, page);
         return ApiResponse.success(performances);
     }
 }
