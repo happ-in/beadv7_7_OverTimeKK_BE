@@ -24,7 +24,7 @@ select p.performanceId
      , psp.price
      , :ticketStatus
      , local_datetime
-     , local_datetime 
+     , local_datetime
   from Performance p
      , PerformanceSession ps
      , PerformanceSeatPrice psp
@@ -48,7 +48,7 @@ select p.performanceId
      , psp.price
      , :ticketStatus
      , local_datetime
-     , local_datetime 
+     , local_datetime
   from Performance p
      , PerformanceSeatPrice psp
      , Seat s
@@ -60,4 +60,6 @@ select p.performanceId
     int issueAdditionalTickets(@Param("performanceId") Long performanceId, @Param("sessionNum") Long sessionNum, @Param("ticketStatus") TicketStatus status);
 
     void deleteByPerformanceIdAndSessionNum(Long performanceId, Long sessionNum);
+
+    boolean existsByPerformanceIdAndSessionNumAndTicketStatusAndZone(Long performanceId, Long sessionNum, TicketStatus ticketStatus, String zone);
 }
