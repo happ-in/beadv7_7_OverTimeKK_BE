@@ -6,9 +6,9 @@ import com.programmers.kdt.performance.entity.PerformanceSession;
 import com.programmers.kdt.performance.entity.PerformanceSessionId;
 import com.programmers.kdt.performance.exception.PerformanceErrorCode;
 import com.programmers.kdt.performance.repository.PerformanceSessionRepository;
+import com.programmers.kdt.ticket.dto.CreateStandbyResponse;
 import com.programmers.kdt.ticket.dto.CheckTicketHoldAvailableRequest;
 import com.programmers.kdt.ticket.dto.CheckTicketHoldAvailableResponse;
-import com.programmers.kdt.ticket.dto.CreateStandbyResponse;
 import com.programmers.kdt.ticket.dto.SessionStartDateResponse;
 import com.programmers.kdt.ticket.dto.StandbyTicketRequest;
 import com.programmers.kdt.ticket.entity.Ticket;
@@ -31,15 +31,6 @@ public class TicketServiceImpl implements TicketService {
 
     private final TicketRepository ticketRepository;
     private final PerformanceSessionRepository sessionRepository;
-
-
-    public void holdSeat(Long ticketId, Long userId) {
-        // TODO
-    }
-
-    public void releaseHold(Long ticketId) {
-        // TODO
-    }
 
     @Override
     public CreateStandbyResponse issueStandby(Long userId, Long sessionNum, String zone) {
