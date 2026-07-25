@@ -1,4 +1,4 @@
-package com.programmers.kdt.performance.service;
+package com.programmers.kdt.performance.service.impl;
 
 import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.performance.dto.PerformanceSessionRequest;
@@ -9,6 +9,7 @@ import com.programmers.kdt.performance.entity.PerformanceSessionId;
 import com.programmers.kdt.performance.exception.PerformanceErrorCode;
 import com.programmers.kdt.performance.repository.PerformanceRepository;
 import com.programmers.kdt.performance.repository.PerformanceSessionRepository;
+import com.programmers.kdt.performance.service.PerformanceSessionService;
 import com.programmers.kdt.ticket.entity.TicketStatus;
 import com.programmers.kdt.ticket.repository.TicketRepository;
 import lombok.RequiredArgsConstructor;
