@@ -19,4 +19,8 @@ public record ApiResponse<T>(
     public static ApiResponse<List<FieldErrorResponse>> failValid(String code, String message, List<FieldErrorResponse> errors) {
         return new ApiResponse<>(false, errors, code, message);
     }
+
+    public static ApiResponse<FieldErrorResponse> failValid(String code, String message, FieldErrorResponse error) {
+        return new ApiResponse<>(false, error, code, message);
+    }
 }

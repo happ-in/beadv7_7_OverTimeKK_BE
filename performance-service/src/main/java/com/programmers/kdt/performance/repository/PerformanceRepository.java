@@ -1,5 +1,6 @@
 package com.programmers.kdt.performance.repository;
 
+import com.programmers.kdt.performance.dto.EndedTicketResponse;
 import com.programmers.kdt.performance.entity.Performance;
 import com.programmers.kdt.performance.entity.PerformanceStatus;
 import org.springframework.data.domain.Page;
@@ -10,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.util.List;
 
 public interface PerformanceRepository extends JpaRepository<Performance, Long> {
     Page<Performance> findByPerformanceStatus(PerformanceStatus status, Pageable pageable);
@@ -21,7 +23,16 @@ public interface PerformanceRepository extends JpaRepository<Performance, Long> 
          update Performance p
             set p.performanceStatus = :status
           where p.performanceStatus <> :status
-            and p.endDate < :now 
-""")
+            and p.endDate < :now
+         """)
     int updateExpiredPerformances(@Param("status") PerformanceStatus status, @Param("now") LocalDate now);
+
+    @Query( value = """
+                    select new com.programmers.kdt.performance.dto.EndedTicketResponse(p.performanceId, t.ticketId)
+                      from Performance p, Ticket t
+                     where p.performanceId = t.performanceId
+                       and p.endDate = :endDate
+                       and t.ticketStatus = TicketStatus.RESERVED
+                    """)
+    List<EndedTicketResponse> findEndedTickets(@Param("endDate") LocalDate endDate);
 }
