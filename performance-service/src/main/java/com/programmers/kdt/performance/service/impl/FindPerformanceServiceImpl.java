@@ -3,6 +3,8 @@ package com.programmers.kdt.performance.service.impl;
 import com.programmers.kdt.common.PageConstants;
 import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.common.exception.CommonErrorCode;
+import com.programmers.kdt.performance.dto.EndedTicketResponse;
+import com.programmers.kdt.performance.dto.EndedTicketsResponse;
 import com.programmers.kdt.performance.dto.FindPerformanceResponse;
 import com.programmers.kdt.performance.entity.Performance;
 import com.programmers.kdt.performance.entity.PerformanceStatus;
@@ -20,6 +22,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -44,6 +47,12 @@ public class FindPerformanceServiceImpl implements FindPerformanceService {
         }
 
         return convertToResponse(performances);
+    }
+
+    @Override
+    public EndedTicketsResponse findEndedPerformanceTickets(LocalDate endDate) {
+        List<EndedTicketResponse> endedTickets = performanceRepository.findEndedTickets(endDate);
+        return new EndedTicketsResponse(endDate, endedTickets);
     }
 
     private Page<Performance> findPerformances(PerformanceStatus status, Pageable pageable) {
