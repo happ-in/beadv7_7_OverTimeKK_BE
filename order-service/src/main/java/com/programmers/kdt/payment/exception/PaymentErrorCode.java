@@ -22,6 +22,8 @@ public enum PaymentErrorCode implements ErrorCode {
     PAYMENT_CONCURRENT_MODIFICATION(HttpStatus.CONFLICT, "P409_003", "다른 요청과 동시에 처리되어 실패했습니다. 잠시 후 다시 시도해주세요."),
     REFUND_ALREADY_IN_PROGRESS(HttpStatus.CONFLICT, "P409_004", "이미 처리 중인 환불 요청이 있습니다."),
 
+    REFUND_PERIOD_EXPIRED(HttpStatus.UNPROCESSABLE_CONTENT, "PAY422_001", "환불 가능 기간이 지나 취소할 수 없습니다."),
+
     ENCRYPTION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "PAY500_001", "결제 정보 암호화 중 오류가 발생했습니다."),
     DECRYPTION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "PAY500_002", "결제 정보 복호화 중 오류가 발생했습니다."),
 

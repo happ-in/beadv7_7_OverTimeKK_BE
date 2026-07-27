@@ -12,9 +12,4 @@ public class MockPerformanceClient implements PerformanceClient {
     public LocalDate getPerformanceDate(Long ticketId) {
         return LocalDate.now().plusDays(7); // 임시: 7일 뒤 공연으로 가정
     }
-
-    @Override
-    public LocalDate getPerformanceEndDate(Long ticketId) {
-        return LocalDate.now().plusDays(7);
-    }
 }

@@ -549,6 +549,8 @@ class PaymentServiceImplTest {
             payment.approve();
 
             when(paymentRepository.findByOrderId(1L)).thenReturn(Optional.of(payment));
+            when(orderClient.getTicketId(1L)).thenReturn(10L);
+            when(performanceClient.getPerformanceDate(10L)).thenReturn(LocalDate.now().plusDays(4));
             when(paymentRepository.saveAndFlush(payment))
                     .thenThrow(new ObjectOptimisticLockingFailureException(Payment.class, 1L));
 
@@ -558,6 +560,28 @@ class PaymentServiceImplTest {
                     .isEqualTo(PaymentErrorCode.PAYMENT_CONCURRENT_MODIFICATION);
 
             verifyNoInteractions(pgClient);
+        }
+
+        @Test
+        @DisplayName("환불 가능 기간이 지나면 접수 자체가 거부되고 결제 상태는 그대로 유지된다.")
+        void refundRejectedWhenPeriodExpired() {
+            Payment payment = Payment.create(1L, 100L, 10000L);
+            payment.assignPaymentKey("PG_KEY_123");
+            payment.approve();
+
+            when(paymentRepository.findByOrderId(1L)).thenReturn(Optional.of(payment));
+            when(orderClient.getTicketId(1L)).thenReturn(10L);
+            when(performanceClient.getPerformanceDate(10L)).thenReturn(LocalDate.now()); // 공연 당일 -> rate 0.0
+
+            assertThatThrownBy(() -> paymentService.refund(1L, new RefundPaymentRequest("고객 요청")))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(PaymentErrorCode.REFUND_PERIOD_EXPIRED);
+
+            assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.PAID);
+            verifyNoInteractions(pgClient, paymentRefundRepository);
+            verify(paymentRepository, never()).saveAndFlush(any());
+            verify(refundEventPublisher, never()).publish(any());
         }
     }
 
