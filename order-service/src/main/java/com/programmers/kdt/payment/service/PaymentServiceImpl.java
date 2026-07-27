@@ -154,6 +154,14 @@ public class PaymentServiceImpl implements PaymentService{
         Payment payment = paymentRepository.findByOrderId(orderId)
                 .orElseThrow(() -> new BusinessException(PaymentErrorCode.PAYMENT_NOT_FOUND));
 
+        // 환불 가능 기간이 지났으면 접수 거부
+        Long ticketId = orderClient.getTicketId(orderId);
+        LocalDate performanceDate = performanceClient.getPerformanceDate(ticketId);
+        double refundRate = RefundPolicy.resolveRefundRate(performanceDate, LocalDate.now());
+        if (refundRate == 0.0) {
+            throw new BusinessException(PaymentErrorCode.REFUND_PERIOD_EXPIRED);
+        }
+
         try {
             payment.requestRefund();
             paymentRepository.saveAndFlush(payment);

@@ -30,7 +30,7 @@ public class PointServiceImpl implements PointService {
         }
 
         Point point = pointRepository.findById(userId)
-                .orElseGet(() -> (Point.create(userId))); // 포인트 사용에서 포인트 생성이 과연 맞는가?
+                .orElseThrow(() -> new BusinessException(PointErrorCode.POINT_NOT_FOUND, userId));
 
         try {
             point.use(amount);
@@ -40,6 +40,26 @@ public class PointServiceImpl implements PointService {
         }
 
         pointLogRepository.save(PointLog.use(userId, amount, eventId));
+    }
+
+    @Override
+    @Transactional
+    public void earnPoint(Long userId, Long amount, String eventId) {
+        if (pointLogRepository.findByEventId(eventId).isPresent()) {
+            log.warn("이미 처리된 포인트 적립 이벤트 - eventId:{}", eventId);
+            return;
+        }
+
+        Point point = pointRepository.findById(userId)
+                .orElseGet(() -> Point.create(userId));
+
+        try {
+            point.earn(amount);
+            pointRepository.saveAndFlush(point);
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw new BusinessException(PointErrorCode.POINT_CONCURRENT_MODIFICATION);
+        }
+        pointLogRepository.save(PointLog.earn(userId, amount, eventId));
     }
 
     @Override

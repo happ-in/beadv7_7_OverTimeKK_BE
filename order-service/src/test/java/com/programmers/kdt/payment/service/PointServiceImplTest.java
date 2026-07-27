@@ -72,7 +72,7 @@ class PointServiceImplTest {
         }
 
         @Test
-        @DisplayName("Point row가 없는(신규) 유저는 잔액이 0이라 사용 시 예외가 발생한다.")
+        @DisplayName("Point row가 없는(신규) 유저가 포인트를 사용하려 하면 POINT_NOT_FOUND 예외가 발생한다.")
         void useNewUserInsufficientPoint() {
             // given
             when(pointLogRepository.findByEventId("ORDER:1:POINT_USE")).thenReturn(Optional.empty());
@@ -82,7 +82,7 @@ class PointServiceImplTest {
             assertThatThrownBy(() -> pointService.usePoint(1L, 300L, "ORDER:1:POINT_USE"))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
-                    .isEqualTo(PointErrorCode.INSUFFICIENT_POINT);
+                    .isEqualTo(PointErrorCode.POINT_NOT_FOUND);
 
             verify(pointRepository, never()).saveAndFlush(any());
             verify(pointLogRepository, never()).save(any());
