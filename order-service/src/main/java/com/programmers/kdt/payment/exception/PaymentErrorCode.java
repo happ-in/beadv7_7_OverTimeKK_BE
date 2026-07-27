@@ -15,6 +15,7 @@ public enum PaymentErrorCode implements ErrorCode {
 
     PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "PAY404_001", "결제 내역을 찾을 수 없습니다."),
     ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "PAY404_002", "주문 내역을 찾을 수 없습니다."),
+    PERFORMANCE_DATE_NOT_FOUND(HttpStatus.NOT_FOUND, "PAY404_003", "공연일 정보를 찾을 수 없습니다. ticketId: {0}"),
 
     PAYMENT_ALREADY_EXISTS(HttpStatus.CONFLICT, "PAY409_001", "이미 해당 주문에 대한 결제가 존재합니다."),
     INVALID_PAYMENT_STATUS(HttpStatus.CONFLICT, "PAY409_002", "현재 결제 상태에서는 처리할 수 없는 요청입니다. 현재 상태: {0}"),
@@ -26,6 +27,7 @@ public enum PaymentErrorCode implements ErrorCode {
 
     PG_REQUEST_FAILED(HttpStatus.BAD_GATEWAY, "PAY502_001", "PG사 요청 처리 중 오류가 발생했습니다."),
     INVALID_PAYMENT_KEY(HttpStatus.BAD_GATEWAY, "PAY502_002", "PG사로부터 유효한 결제 키를 받지 못했습니다."),
+    PERFORMANCE_SERVICE_REQUEST_FAILED(HttpStatus.BAD_GATEWAY, "PAY502_003", "공연 서비스 요청 처리 중 오류가 발생했습니다."),
     ;
 
     private final HttpStatus httpStatus;

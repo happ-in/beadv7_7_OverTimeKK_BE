@@ -796,4 +796,51 @@ class PaymentServiceImplTest {
         verify(pointService, times(1)).rollbackPoint(any(), any(), any(), anyBoolean());
     }
 
+    @Test
+    @DisplayName("공연일 조회에서 PERFORMANCE_DATE_NOT_FOUND가 발생하면 결제가 PAID로 롤백된다.")
+    void performanceDateNotFound() {
+        //given
+        Payment payment = Payment.create(1L, 100L, 10000L);
+        ReflectionTestUtils.setField(payment, "id", 1L);
+        payment.assignPaymentKey("PG_KEY_123");
+        payment.approve();
+        payment.requestRefund();
+
+        when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
+        when(orderClient.getTicketId(1L)).thenReturn(10L);
+        when(performanceClient.getPerformanceDate(10L))
+                .thenThrow(new BusinessException(PaymentErrorCode.PERFORMANCE_DATE_NOT_FOUND, 10L));
+
+        //when
+        paymentService.onRefundRequested(new RefundRequestEvent(1L, "고객 요청", LocalDateTime.now()));
+
+        //then
+        assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.PAID);
+        verifyNoInteractions(pgClient);
+        verifyNoInteractions(paymentRefundRepository);
+    }
+
+    @Test
+    @DisplayName("performance-service 요청이 실패(5xx 등)해도 결제가 PAID로 롤백된다.")
+    void performanceServiceRequestFailed() {
+        //given
+        Payment payment = Payment.create(1L, 100L, 10000L);
+        ReflectionTestUtils.setField(payment, "id", 1L);
+        payment.assignPaymentKey("PG_KEY_123");
+        payment.approve();
+        payment.requestRefund();
+
+        when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
+        when(orderClient.getTicketId(1L)).thenReturn(10L);
+        when(performanceClient.getPerformanceDate(10L))
+                .thenThrow(new BusinessException(PaymentErrorCode.PERFORMANCE_SERVICE_REQUEST_FAILED));
+
+        //when
+        paymentService.onRefundRequested(new RefundRequestEvent(1L, "고객 요청", LocalDateTime.now()));
+
+        //then
+        assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.PAID);
+        verifyNoInteractions(pgClient);
+        verifyNoInteractions(paymentRefundRepository);
+    }
 }

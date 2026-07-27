@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
-// 기능 테스트를 위한 임시 구현체
+// SpringEvent를 이용한 이벤트 발행(추후에 메세지 큐로 변경해야함)
 public class SpringRefundEventPublisher implements RefundEventPublisher {
     private final ApplicationEventPublisher eventPublisher;
 
