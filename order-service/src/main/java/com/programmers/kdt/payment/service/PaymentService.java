@@ -20,7 +20,7 @@ public interface PaymentService {
     Page<GetPaymentHistoryResponse> getPaymentHistory(Long userId, Pageable pageable);
 
     // 전액 환불
-    RefundPaymentResponse refund(Long paymentId, RefundPaymentRequest request);
+    RefundPaymentResponse refund(Long orderId, RefundPaymentRequest request);
 
     void onRefundRequested(RefundRequestEvent event);
 

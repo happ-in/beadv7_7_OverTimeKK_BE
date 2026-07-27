@@ -58,16 +58,6 @@ public class PaymentController {
         return ApiResponse.success(response);
     }
 
-    // 결제 환불
-    @PostMapping("/{paymentId}/refund")
-    public ResponseEntity<ApiResponse<RefundPaymentResponse>> refund(
-            @PathVariable Long paymentId,
-            @RequestBody RefundPaymentRequest request) {
-
-        RefundPaymentResponse response = paymentService.refund(paymentId, request);
-        return ResponseEntity.created(URI.create("/api/payments/" + response.paymentId())).body(ApiResponse.success(response));
-    }
-
     @GetMapping("/{paymentId}/refunds")
     public ApiResponse<Page<GetPaymentRefundHistoryResponse>> getRefundHistory(
             @PathVariable Long paymentId,
