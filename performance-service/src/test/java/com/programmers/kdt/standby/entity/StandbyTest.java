@@ -136,7 +136,7 @@ public class StandbyTest {
             Standby standby = Standby.apply(1L, session, List.of("A", "B", "C"));
 
             // when
-            standby.hold("B");
+            standby.hold("B", null);
 
             // then
             assertThat(standby.getSlot()).isEqualTo(Slot.ZONE2);
@@ -151,8 +151,34 @@ public class StandbyTest {
             Standby standby = Standby.apply(1L, session, List.of("A"));
 
             // when & then
-            assertThatThrownBy(() -> standby.hold("Z"))
+            assertThatThrownBy(() -> standby.hold("Z", null))
                     .isInstanceOf(IllegalStateException.class);
+        }
+
+        @Test
+        @DisplayName("ticketId를 함께 넘겨 매칭하면 ticketId가 저장된다.")
+        void holdWithTicketIdStoresTicketId() {
+            // given- 대기등록()
+            Standby standby = Standby.apply(1L, session, List.of("A"));
+
+            // when
+            standby.hold("A", 42L);
+
+            // then
+            assertThat(standby.getTicketId()).isEqualTo(42L);
+        }
+
+        @Test
+        @DisplayName("ticketId로 null을 넘겨 매칭하면 ticketId는 null이다.")
+        void holdWithoutTicketIdLeavesTicketIdNull() {
+            // given
+            Standby standby = Standby.apply(1L, session, List.of("A"));
+
+            // when
+            standby.hold("A", null);
+
+            // then
+            assertThat(standby.getTicketId()).isNull();
         }
     }
 
@@ -177,7 +203,7 @@ public class StandbyTest {
             Standby standby = Standby.apply(1L, session, List.of("A", "B", "C"));
 
             // when
-            standby.hold("C");
+            standby.hold("C", null);
 
             // then
             assertThat(standby.getMatchedZone()).isEqualTo("C");
@@ -206,7 +232,7 @@ public class StandbyTest {
         void cancelFromHeld() {
             // given
             Standby standby = Standby.apply(1L, session, List.of("A"));
-            standby.hold("A");
+            standby.hold("A", null);
 
             // when
             standby.cancel();
@@ -267,7 +293,7 @@ public class StandbyTest {
         void cancelNonMatchedZoneKeepsHeldState() {
             // given - A로 매칭(HELD), B/C는 아직 후보로 남아있는 상태
             Standby standby = Standby.apply(1L, session, List.of("A", "B", "C"));
-            standby.hold("A");
+            standby.hold("A", null);
 
             // when
             standby.cancelZone("C");
@@ -281,9 +307,9 @@ public class StandbyTest {
         @Test
         @DisplayName("HELD 상태에서 매칭된(slot) zone을 취소하면, 남은 zone에 대해 WAITING으로 되돌아간다.")
         void cancelMatchedZoneRevertsToWaiting() {
-            // given - B로 매칭(HELD), A/C는 아직 후보
+            // given - B로 매칭(HELD, ticketId=42), A/C는 아직 후보
             Standby standby = Standby.apply(1L, session, List.of("A", "B", "C"));
-            standby.hold("B");
+            standby.hold("B", 42L);
 
             // when
             standby.cancelZone("B");
@@ -295,6 +321,7 @@ public class StandbyTest {
             assertThat(standby.getStandbyStatus()).isEqualTo(StandbyStatus.WAITING);
             assertThat(standby.getSlot()).isNull();
             assertThat(standby.getHeldAt()).isNull();
+            assertThat(standby.getTicketId()).isNull();
             assertThat(standby.getMatchedZone()).isNull();
         }
 
@@ -303,7 +330,7 @@ public class StandbyTest {
         void cancelMatchedZoneAsLastRemainingCancelsWhole() {
             // given - 지망 zone이 A 하나뿐이고, 그게 매칭(HELD)된 상태
             Standby standby = Standby.apply(1L, session, List.of("A"));
-            standby.hold("A");
+            standby.hold("A", null);
 
             // when
             standby.cancelZone("A");
@@ -359,7 +386,7 @@ public class StandbyTest {
         @DisplayName("HELD 상태면 조회 가능하다.")
         void trueWhenHeld() {
             Standby standby = Standby.apply(1L, session, List.of("A"));
-            standby.hold("A");
+            standby.hold("A", null);
 
             assertThat(standby.canViewRank()).isTrue();
         }
