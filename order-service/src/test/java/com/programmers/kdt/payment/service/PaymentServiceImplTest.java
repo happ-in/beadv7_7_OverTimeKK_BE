@@ -548,7 +548,7 @@ class PaymentServiceImplTest {
             payment.assignPaymentKey("PG_KEY_123");
             payment.approve();
 
-            when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
+            when(paymentRepository.findByOrderId(1L)).thenReturn(Optional.of(payment));
             when(paymentRepository.saveAndFlush(payment))
                     .thenThrow(new ObjectOptimisticLockingFailureException(Payment.class, 1L));
 

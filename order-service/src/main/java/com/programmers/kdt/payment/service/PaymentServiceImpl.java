@@ -55,6 +55,8 @@ public class PaymentServiceImpl implements PaymentService{
             throw new BusinessException(PaymentErrorCode.PAYMENT_ALREADY_EXISTS);
         }
 
+        order.startPayment(LocalDateTime.now()); // 주문상태 검증
+
         // 주문 금액이 같은지 판별
         if (!order.getTotalAmount().equals(request.amount())) {
             throw new BusinessException(PaymentErrorCode.INVALID_PAYMENT_AMOUNT);
@@ -148,8 +150,9 @@ public class PaymentServiceImpl implements PaymentService{
 
     // 환불 요청(접수)
     @Transactional
-    public RefundPaymentResponse refund(Long paymentId, RefundPaymentRequest request) {
-        Payment payment = getPayment(paymentId);
+    public RefundPaymentResponse refund(Long orderId, RefundPaymentRequest request) {
+        Payment payment = paymentRepository.findByOrderId(orderId)
+                .orElseThrow(() -> new BusinessException(PaymentErrorCode.PAYMENT_NOT_FOUND));
 
         try {
             payment.requestRefund();
