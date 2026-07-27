@@ -8,8 +8,11 @@ import com.programmers.kdt.performance.repository.PerformanceSessionRepository;
 import com.programmers.kdt.standby.entity.Standby;
 import com.programmers.kdt.standby.entity.StandbyStatus;
 import com.programmers.kdt.standby.dto.StandbyRankResponse;
+import com.programmers.kdt.standby.event.StandbyTicketEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import com.programmers.kdt.standby.exception.StandbyErrorCode;
 import com.programmers.kdt.standby.repository.StandbyRepository;
+import com.programmers.kdt.ticket.entity.Ticket;
 import com.programmers.kdt.ticket.repository.TicketRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -46,6 +49,9 @@ class StandbyServiceTest {
 
     @Mock
     private TicketRepository ticketRepository;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private StandbyService standbyService;
@@ -224,45 +230,63 @@ class StandbyServiceTest {
     }
 
     @Nested
-    @DisplayName("매칭(tryMatch) - zone에 자리가 났을 때(대기1순위일떄) 대기자 선정")
+    @DisplayName("매칭(tryMatch) - ticket이 좌석을 대기표로 전환한 직후 호출")
     class TryMatch {
 
-        @Test
-        @DisplayName("해당 zone 대기자가 있으면 repository가 FIFO 선두 1명을 HELD로 바뀐다.")
-        void matchesEarliestCandidate() {
-            // given - (예약취소 혹은 매칭 취소로 인해) match 콜이 왔다고 가정, 그 중 첫 번째가 매칭 대상
-            Standby earliest = mock(Standby.class);
-            Standby later = mock(Standby.class);
+        private static final Long TICKET_ID = 500L;
 
+        @Test
+        @DisplayName("해당 zone 대기자가 있으면 FIFO 선두 1명이 HELD로 바뀌고 ticket에 매칭 결과를 알린다.")
+        void matchesEarliestCandidate() {
+            // given
+            Ticket ticket = mock(Ticket.class);
+            given(ticket.getPerformanceId()).willReturn(PERFORMANCE_ID);
+            given(ticket.getSessionNum()).willReturn(SESSION_NUM);
+            given(ticket.getZone()).willReturn("A");
+            given(ticketRepository.findById(TICKET_ID)).willReturn(Optional.of(ticket));
+
+            Standby earliest = mock(Standby.class);
+            LocalDateTime heldAt = LocalDateTime.now();
             given(earliest.getStandbyId()).willReturn(100L);
+            given(earliest.getUserId()).willReturn(USER_ID);
+            given(earliest.getHeldAt()).willReturn(heldAt);
+
             given(performanceSessionRepository.findById(sessionId()))
                     .willReturn(Optional.of(session));
             given(standbyRepository.findMatchCandidate(session, "A", StandbyStatus.WAITING))
                     .willReturn(Optional.of(earliest));
 
             // when
-            Optional<Long> matchedId = standbyService.tryMatch(PERFORMANCE_ID, SESSION_NUM, "A");
+            Optional<Long> matchedId = standbyService.tryMatch(TICKET_ID);
 
             // then
             assertThat(matchedId).contains(100L);
-            verify(earliest).hold("A");
-            verify(later, never()).hold(any());
+            verify(earliest).hold("A", TICKET_ID);
+            verify(eventPublisher)
+                    .publishEvent(new StandbyTicketEvent(TICKET_ID, USER_ID, heldAt.plusMinutes(30)));
         }
 
         @Test
-        @DisplayName("해당 zone 대기자가 없으면 매칭되지 않고 빈 값을 반환한다.")
+        @DisplayName("해당 zone 대기자가 없으면 매칭되지 않고, ticket에 알리지도 않는다.")
         void returnsEmptyWhenNoCandidate() {
             // given
+            Ticket ticket = mock(Ticket.class);
+            given(ticket.getPerformanceId()).willReturn(PERFORMANCE_ID);
+            given(ticket.getSessionNum()).willReturn(SESSION_NUM);
+            given(ticket.getZone()).willReturn("A");
+            given(ticketRepository.findById(TICKET_ID)).willReturn(Optional.of(ticket));
+
             given(performanceSessionRepository.findById(sessionId()))
                     .willReturn(Optional.of(session));
             given(standbyRepository.findMatchCandidate(session, "A", StandbyStatus.WAITING))
                     .willReturn(Optional.empty());
 
             // when
-            Optional<Long> matchedId = standbyService.tryMatch(PERFORMANCE_ID, SESSION_NUM, "A");
+            Optional<Long> matchedId = standbyService.tryMatch(TICKET_ID);
 
             // then
             assertThat(matchedId).isEmpty();
+            verify(eventPublisher, never()).publishEvent(any());
         }
     }
 
@@ -309,6 +333,35 @@ class StandbyServiceTest {
             // then
             verify(cancelled).cancel();
             verify(standbyRepository).findMatchCandidate(session, "A", StandbyStatus.WAITING);
+        }
+
+        @Test
+        @DisplayName("HELD 취소로 다음 대기자가 매칭되면, 취소된 신청이 들고 있던 ticketId를 그대로 이어받아 ticket에 알린다.")
+        void cancelHeldStandbyPropagatesTicketIdToNextCandidate() {
+            // given - 취소되는 standby가 ticketId=900을 들고 있었음
+            Long ticketId = 900L;
+            Standby cancelled = mock(Standby.class);
+            given(standbyRepository.findById(STANDBY_ID)).willReturn(Optional.of(cancelled));
+            given(cancelled.getUserId()).willReturn(USER_ID);
+            given(cancelled.getStandbyStatus()).willReturn(StandbyStatus.HELD);
+            given(cancelled.getMatchedZone()).willReturn("A");
+            given(cancelled.getTicketId()).willReturn(ticketId);
+            given(cancelled.getPerformanceSession()).willReturn(session);
+
+            Standby next = mock(Standby.class);
+            LocalDateTime heldAt = LocalDateTime.now();
+            given(next.getUserId()).willReturn(999L);
+            given(next.getHeldAt()).willReturn(heldAt);
+            given(standbyRepository.findMatchCandidate(session, "A", StandbyStatus.WAITING))
+                    .willReturn(Optional.of(next));
+
+            // when
+            standbyService.cancelStandby(STANDBY_ID, USER_ID);
+
+            // then - 새로 매칭된 next는 같은 ticketId로 hold되고, 그 ticketId 그대로 이벤트가 발행된다.
+            verify(next).hold("A", ticketId);
+            verify(eventPublisher)
+                    .publishEvent(new StandbyTicketEvent(ticketId, 999L, heldAt.plusMinutes(30)));
         }
 
         @Test
@@ -386,6 +439,34 @@ class StandbyServiceTest {
             // then
             verify(standby).cancelZone("B");
             verify(standbyRepository).findMatchCandidate(session, "B", StandbyStatus.WAITING);
+        }
+
+        @Test
+        @DisplayName("부분취소로 다음 대기자가 매칭되면, 취소된 신청이 들고 있던 ticketId를 그대로 이어받아 ticket에 알린다.")
+        void cancelMatchedZonePropagatesTicketIdToNextCandidate() {
+            // given - 취소되는 standby가 ticketId=901을 들고 있었음
+            Long ticketId = 901L;
+            Standby standby = mock(Standby.class);
+            given(standbyRepository.findById(STANDBY_ID)).willReturn(Optional.of(standby));
+            given(standby.getUserId()).willReturn(USER_ID);
+            given(standby.getMatchedZone()).willReturn("B");
+            given(standby.getTicketId()).willReturn(ticketId);
+            given(standby.getPerformanceSession()).willReturn(session);
+
+            Standby next = mock(Standby.class);
+            LocalDateTime heldAt = LocalDateTime.now();
+            given(next.getUserId()).willReturn(999L);
+            given(next.getHeldAt()).willReturn(heldAt);
+            given(standbyRepository.findMatchCandidate(session, "B", StandbyStatus.WAITING))
+                    .willReturn(Optional.of(next));
+
+            // when
+            standbyService.cancelZone(STANDBY_ID, USER_ID, "B");
+
+            // then
+            verify(next).hold("B", ticketId);
+            verify(eventPublisher)
+                    .publishEvent(new StandbyTicketEvent(ticketId, 999L, heldAt.plusMinutes(30)));
         }
 
         @Test

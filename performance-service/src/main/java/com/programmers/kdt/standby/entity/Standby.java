@@ -69,6 +69,8 @@ public class Standby extends BaseTimeEntity {
     // 결제 매칭 시각
     private LocalDateTime heldAt;
 
+    private Long ticketId;
+
     public static Standby apply(Long userId, PerformanceSession session, List<String> zones){
 
         validateZones(zones);
@@ -94,10 +96,11 @@ public class Standby extends BaseTimeEntity {
         }
     }
 
-    public void hold(String zone) {
+    public void hold(String zone, Long ticketId) {
         this.slot = resolveSlot(zone);
         this.standbyStatus = StandbyStatus.HELD;
         this.heldAt = LocalDateTime.now();
+        this.ticketId = ticketId;
     }
 
     private Slot resolveSlot(String zone) {
@@ -161,6 +164,7 @@ public class Standby extends BaseTimeEntity {
         if (wasMatchedZone) {
             this.slot = null;
             this.heldAt = null;
+            this.ticketId = null;
         }
 
         if (zone1 == null && zone2 == null && zone3 == null) {
