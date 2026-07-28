@@ -1,27 +1,29 @@
 package com.programmers.kdt.order.service;
 
+import com.programmers.kdt.common.constant.OrderTypeCode;
 import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.order.client.TicketClient;
-import com.programmers.kdt.order.client.TicketHoldResult;
+import com.programmers.kdt.order.dto.TicketHoldResult;
 import com.programmers.kdt.order.client.TicketInfo;
 import com.programmers.kdt.order.dto.*;
 import com.programmers.kdt.order.entity.Order;
 import com.programmers.kdt.order.entity.OrderItem;
 import com.programmers.kdt.order.entity.OrderStatus;
-import com.programmers.kdt.order.event.OrderCancelledEvent;
+import com.programmers.kdt.order.event.TicketReleaseRequestEvent;
 import com.programmers.kdt.order.exception.OrderErrorCode;
 import com.programmers.kdt.order.repository.OrderRepository;
 import com.programmers.kdt.payment.dto.RefundPaymentRequest;
 import com.programmers.kdt.payment.service.PaymentService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cglib.core.Local;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -33,22 +35,44 @@ public class OrderServiceImpl implements OrderService {
     private final ApplicationEventPublisher eventPublisher;
 
     // 주문 요청
+    @Override
     @Transactional
     public CreateOrderResponse createOrder(CreateOrderRequest request) {
+        validateOrderType(request.orderType());
+
         // 존재하는 좌석인지, 좌석 점유 여부 확인 및 점유 요청
-       TicketHoldResult holdTicket = ticketClient.holdSeat(request.ticketId(), request.userId()) ; // 추후 ticketService
+        TicketHoldRequest ticketRequest = TicketHoldRequest.from(request);
+        TicketHoldResult holdTicket = ticketClient.holdSeat(ticketRequest);
 
         // 주문 항목 생성 - 현재는 티켓 1매만 가능
-        OrderItem item = OrderItem.create(holdTicket.ticketId(), holdTicket.ticketPrice());
+        OrderItem item = OrderItem.create(holdTicket.ticketId(), holdTicket.price(), holdTicket.holdKey());
 
         // 주문 생성 및 저장 -- 티켓 만료 시각을 주문 만료 시각으로 설정
-        Order order = Order.create(request.userId(), List.of(item), holdTicket.holdExpiresAt());
+        Order order = Order.create(request.userId(), List.of(item), holdTicket.holdExpiredAt());
         Order savedOrder = orderRepository.save(order);
 
         return CreateOrderResponse.from(savedOrder);
     }
+    private void validateOrderType(String orderType){
+        if(!OrderTypeCode.isSupported(orderType)){
+            throw new BusinessException(OrderErrorCode.INVALID_ORDER_TYPE);
+        }
+    }
+
+    @Override
+    @Transactional
+    // 결제 전 주문 취소
+    public CancelOrderResponse cancelPendingOrder(Long orderId){
+        Order order = findOrder(orderId);
+        order.cancelPending();
+
+        publishTicketReleaseEvent(order);
+
+        return CancelOrderResponse.from(order);
+    }
 
     // 주문 완료
+    @Override
     @Transactional
     public void completeOrder(Long orderId){
         Order order = findOrder(orderId);
@@ -56,6 +80,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     // 주문 만료
+    @Override
     @Transactional
     public void expireOrders(){
         LocalDateTime now = LocalDateTime.now();
@@ -66,10 +91,12 @@ public class OrderServiceImpl implements OrderService {
         );
         for(Order order : orders){
             order.expire();
+            publishTicketReleaseEvent(order);
         }
     }
 
     // 주문 만료 조회 -- 결제 생성 API 클릭 시 호출
+    @Override
     @Transactional
     public void startPayment(Long orderId) {
         Order order = findOrder(orderId);
@@ -77,9 +104,10 @@ public class OrderServiceImpl implements OrderService {
         order.startPayment(LocalDateTime.now());
     }
 
-    // 주문 취소
+    // 결제 후 주문 취소
+    @Override
     @Transactional
-    public CancelOrderResponse cancelOrder(Long orderId, CancelOrderRequest request) {
+    public CancelOrderResponse cancelCompletedOrder(Long orderId, CancelOrderRequest request) {
         Order order = findOrder(orderId);
 
         // 취소 가능한 주문인지 검증
@@ -91,29 +119,45 @@ public class OrderServiceImpl implements OrderService {
                 new RefundPaymentRequest(request.reason())); // paymentService의 cancel메서드 파라미터 :orderId로 변경
 
         // 결제 취소 성공 -> 주문 취소 완료
-        order.cancel();
+        order.cancelCompleted();
 
-        // 좌석 점유 해제 이벤트 발행
-        eventPublisher.publishEvent(
-                new OrderCancelledEvent(
-                        orderId,
-                        order.getTicketId(),
-                        1L) // *** 추후 수정
-        );
+        // TODO: 결제 완료 티켓 취소 API 구현 후 연동
 
         return CancelOrderResponse.from(order);
     }
 
-    // 주문 내역 조회
+    @Override
     @Transactional(readOnly = true)
-    public List<GetOrderHistoryResponse> getOrderHistory(Long userId){
-        List<Order> orderHistory = orderRepository.findByUserId(userId);
+    public List<GetOrderHistoryResponse> getOrderHistory(Long userId) {
+        List<Order> orders =
+                orderRepository.findByUserIdAndOrderStatusOrderByCreatedAtDesc(
+                        userId,
+                        OrderStatus.COMPLETED
+                );
 
-        // 공연장 -> ticketId 조회해서 가져오기
-        return orderHistory.stream()
+        if (orders.isEmpty()) {
+            return List.of();
+        }
+
+        List<TicketInfo> ticketInfos = ticketClient.getTickets(userId);
+
+        Map<Long, TicketInfo> ticketInfoMap = ticketInfos.stream()
+                .collect(Collectors.toMap(
+                        TicketInfo::ticketId,
+                        Function.identity()
+                ));
+
+        return orders.stream()
                 .map(order -> {
-                    Long ticketId = order.getTicketId();
-                    TicketInfo ticketInfo = ticketClient.getTicket(ticketId);
+                    TicketInfo ticketInfo =
+                            ticketInfoMap.get(order.getTicketId());
+
+                    if (ticketInfo == null) {
+                        throw new BusinessException(
+                                OrderErrorCode.TICKET_INFO_NOT_FOUND
+                        );
+                    }
+
                     return GetOrderHistoryResponse.from(order, ticketInfo);
                 })
                 .toList();
@@ -123,6 +167,18 @@ public class OrderServiceImpl implements OrderService {
         return orderRepository.findById(orderId)
                 .orElseThrow(()->
                         new BusinessException(OrderErrorCode.ORDER_NOT_FOUND));
+    }
+
+    private void publishTicketReleaseEvent(Order order) {
+        OrderItem orderItem = order.getItems().getFirst();
+
+        eventPublisher.publishEvent(
+                new TicketReleaseRequestEvent(
+                        order.getOrderId(),
+                        orderItem.getTicketId(),
+                        orderItem.getHoldKey()
+                )
+        );
     }
 
 }
