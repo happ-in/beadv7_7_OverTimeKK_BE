@@ -1,6 +1,7 @@
 package com.programmers.kdt.ticket.controller;
 
 import com.programmers.kdt.common.response.ApiResponse;
+import com.programmers.kdt.ticket.dto.CancelTicketStatusRequest;
 import com.programmers.kdt.ticket.dto.CheckTicketHoldAvailableRequest;
 import com.programmers.kdt.ticket.dto.CheckTicketHoldAvailableResponse;
 import com.programmers.kdt.ticket.dto.CreateStandbyResponse;
@@ -47,5 +48,16 @@ public class TicketController {
     public ApiResponse<?> releaseHoldTicket(@Valid @RequestBody ReleaseTicketHoldRequest request) {
         ticketService.releaseHoldTicket(request);
         return ApiResponse.success(null);
+    }
+
+    @PutMapping("/status/canceled/release")
+    public ApiResponse<?> releaseCanceledTicket(@Valid @RequestBody CancelTicketStatusRequest request) {
+        ticketService.cancelReservedTicket(request);
+        return ApiResponse.success(null);
+    }
+
+    @PostMapping("/orders")
+    public ApiResponse<List<OrderTicketResponse>> orderTickets(@Valid @RequestBody OrderTicketRequest request) {
+        return ApiResponse.success(ticketService.findOrderedTicketInfo(request.userId()));
     }
 }
