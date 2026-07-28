@@ -9,6 +9,8 @@ import com.programmers.kdt.ticket.dto.OrderTicketRequest;
 import com.programmers.kdt.ticket.dto.OrderTicketResponse;
 import com.programmers.kdt.ticket.dto.ReleaseTicketHoldRequest;
 import com.programmers.kdt.ticket.dto.SessionStartDateResponse;
+import com.programmers.kdt.ticket.dto.TicketZoneRequest;
+import com.programmers.kdt.ticket.dto.TicketZonesResponse;
 import com.programmers.kdt.ticket.service.TicketService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -63,5 +65,10 @@ public class TicketController {
     @PostMapping("/orders")
     public ApiResponse<List<OrderTicketResponse>> orderTickets(@Valid @RequestBody OrderTicketRequest request) {
         return ApiResponse.success(ticketService.findOrderedTicketInfo(request.userId()));
+    }
+
+    @PostMapping("/select/seat")
+    public ApiResponse<TicketZonesResponse> selectZone(@Valid @RequestBody TicketZoneRequest request) {
+        return ApiResponse.success(ticketService.getTicketZone(request));
     }
 }

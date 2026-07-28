@@ -5,9 +5,11 @@ import com.programmers.kdt.common.constant.OrderTypeCode;
 import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.common.exception.CommonErrorCode;
 import com.programmers.kdt.common.util.TicketKeyGenerator;
+import com.programmers.kdt.performance.entity.PerformanceSeatPrice;
 import com.programmers.kdt.performance.entity.PerformanceSession;
 import com.programmers.kdt.performance.entity.PerformanceSessionId;
 import com.programmers.kdt.performance.exception.PerformanceErrorCode;
+import com.programmers.kdt.performance.repository.PerformanceSeatPriceRepository;
 import com.programmers.kdt.performance.repository.PerformanceSessionRepository;
 import com.programmers.kdt.standby.event.StandbyCheckResponseEvent;
 import com.programmers.kdt.standby.event.StandbyTicketEvent;
@@ -18,6 +20,9 @@ import com.programmers.kdt.ticket.dto.CreateStandbyResponse;
 import com.programmers.kdt.ticket.dto.OrderTicketResponse;
 import com.programmers.kdt.ticket.dto.ReleaseTicketHoldRequest;
 import com.programmers.kdt.ticket.dto.SessionStartDateResponse;
+import com.programmers.kdt.ticket.dto.TicketZoneRequest;
+import com.programmers.kdt.ticket.dto.TicketZoneResponse;
+import com.programmers.kdt.ticket.dto.TicketZonesResponse;
 import com.programmers.kdt.ticket.entity.Ticket;
 import com.programmers.kdt.ticket.entity.TicketStatus;
 import com.programmers.kdt.ticket.event.StandbyCheckRequestEvent;
@@ -43,6 +48,7 @@ public class TicketServiceImpl implements TicketService {
     private final PerformanceSessionRepository sessionRepository;
 
     private final ApplicationEventPublisher eventPublisher;
+    private final PerformanceSeatPriceRepository performanceSeatPriceRepository;
 
     @Override
     public CreateStandbyResponse issueStandby(Long userId, Long sessionNum, String zone) {
@@ -106,6 +112,13 @@ public class TicketServiceImpl implements TicketService {
     public List<OrderTicketResponse> findOrderedTicketInfo(Long userId) {
         // TODO : 페이징처리 필요
         return ticketRepository.findTicketsByBuyUserId(userId);
+    }
+
+    @Override
+    public TicketZonesResponse getTicketZone(TicketZoneRequest request) {
+        List<TicketZoneResponse> response = ticketRepository.findByZoneAndPerformance(request.performanceId(), request.sessionNum(), request.zone());
+        PerformanceSeatPrice seatPrice = performanceSeatPriceRepository.findByPerformance_PerformanceIdAndZone(request.performanceId(), request.zone());
+        return new TicketZonesResponse(seatPrice.getZone(), seatPrice.getPrice(), response);
     }
 
     @Override

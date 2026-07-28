@@ -1,6 +1,7 @@
 package com.programmers.kdt.ticket.repository;
 
 import com.programmers.kdt.ticket.dto.OrderTicketResponse;
+import com.programmers.kdt.ticket.dto.TicketZoneResponse;
 import com.programmers.kdt.ticket.entity.Ticket;
 import com.programmers.kdt.ticket.entity.TicketStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -82,4 +83,13 @@ select p.performanceId
            order by p.endDate desc
            """)
     List<OrderTicketResponse> findTicketsByBuyUserId(@Param("userId") Long userId);
+
+    @Query("""
+            select new com.programmers.kdt.ticket.dto.TicketZoneResponse(t.ticketId, t.seatRow, t.seatNum, t.ticketStatus)
+              from Ticket t
+             where t.performanceId = :performanceId
+               and t.seatNum = :sessionNum
+               and t.zone = :zone
+            """)
+    List<TicketZoneResponse> findByZoneAndPerformance(@Param("performanceId") Long performanceId, @Param("sessionNum") Long sessionNum, @Param("zone") String zone);
 }
