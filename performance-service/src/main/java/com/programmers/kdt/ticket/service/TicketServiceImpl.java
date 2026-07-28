@@ -13,7 +13,6 @@ import com.programmers.kdt.standby.event.StandbyTicketEvent;
 import com.programmers.kdt.ticket.dto.CheckTicketHoldAvailableRequest;
 import com.programmers.kdt.ticket.dto.CheckTicketHoldAvailableResponse;
 import com.programmers.kdt.ticket.dto.CreateStandbyResponse;
-import com.programmers.kdt.ticket.dto.OrderTicketResponse;
 import com.programmers.kdt.ticket.dto.ReleaseTicketHoldRequest;
 import com.programmers.kdt.ticket.dto.SessionStartDateResponse;
 import com.programmers.kdt.ticket.entity.Ticket;
@@ -30,7 +29,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -126,12 +124,6 @@ public class TicketServiceImpl implements TicketService {
         } else {
             ticket.releaseToAvailable();
         }
-    }
-
-    @Override
-    public List<OrderTicketResponse> findOrderedTicketInfo(Long userId) {
-        // TODO : 페이징처리 필요
-        return ticketRepository.findTicketsByBuyUserId(userId);
     }
 
     private boolean isStandbyTicket(Ticket ticket, Long userId) {
