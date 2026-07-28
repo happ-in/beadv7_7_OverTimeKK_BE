@@ -93,7 +93,7 @@ public class TicketServiceImpl implements TicketService {
         if (existsAvailableInZone) {
             ticket.releaseToAvailable();
         } else {
-            eventPublisher.publishEvent(new StandbyCheckRequestEvent(ticket.getTicketId(), ticket.getSessionNum(), ticket.getZone()));
+            eventPublisher.publishEvent(new StandbyCheckRequestEvent(ticket.getTicketId(), ticket.getSessionNum(), ticket.getZone(), ticket.getTicketId()));
         }
     }
 
