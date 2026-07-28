@@ -1,5 +1,6 @@
 package com.programmers.kdt.ticket.event;
 
+import com.programmers.kdt.standby.event.StandbyCheckResponseEvent;
 import com.programmers.kdt.standby.event.StandbyTicketEvent;
 import com.programmers.kdt.ticket.service.TicketService;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +20,14 @@ public class TicketEventListener {
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void onStandbyTicket(StandbyTicketEvent event) {
+    public void onStandbyTicketHandler(StandbyTicketEvent event) {
         ticketService.standbyTicket(event);
+    }
+
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onCheckStandbyResultHandler(StandbyCheckResponseEvent event) {
+        ticketService.changeTicketStatusByStandby(event);
     }
 }

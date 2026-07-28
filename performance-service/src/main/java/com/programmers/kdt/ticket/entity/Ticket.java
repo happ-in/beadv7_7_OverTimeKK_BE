@@ -58,6 +58,9 @@ public class Ticket extends BaseTimeEntity {
     @Column(name = "standby_expired_at")
     private LocalDateTime standbyExpiredAt;
 
+    @Column(name = "hold_key")
+    private String holdKey;
+
     public static Ticket create(Long performanceId, Long sessionNum, String zone, String seatRow, String seatNum, Long price) {
         Ticket ticket = new Ticket();
         ticket.performanceId = performanceId;
@@ -69,9 +72,10 @@ public class Ticket extends BaseTimeEntity {
         return ticket;
     }
 
-    public void holdTicket (Long userId, LocalDateTime holdExpiredAt) {
+    public void holdTicket (Long userId, LocalDateTime holdExpiredAt, String holdKey) {
         this.buyUserId = userId;
         this.holdExpiredAt = holdExpiredAt;
+        this.holdKey = holdKey;
         this.ticketStatus = TicketStatus.HOLD;
     }
 
