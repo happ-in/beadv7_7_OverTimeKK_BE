@@ -9,6 +9,8 @@ import com.programmers.kdt.ticket.dto.CreateStandbyResponse;
 import com.programmers.kdt.ticket.dto.OrderTicketResponse;
 import com.programmers.kdt.ticket.dto.ReleaseTicketHoldRequest;
 import com.programmers.kdt.ticket.dto.SessionStartDateResponse;
+import com.programmers.kdt.ticket.dto.TicketZoneRequest;
+import com.programmers.kdt.ticket.dto.TicketZonesResponse;
 
 import java.util.List;
 
@@ -28,4 +30,6 @@ public interface TicketService {
     void cancelReservedTicket(CancelTicketStatusRequest request);
 
     List<OrderTicketResponse> findOrderedTicketInfo(Long userId);
+
+    TicketZonesResponse getTicketZone(TicketZoneRequest request);
 }
