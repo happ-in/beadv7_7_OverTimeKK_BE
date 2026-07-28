@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/order")
+@RequestMapping("/api/order")
 @RequiredArgsConstructor
 public class OrderController {
 
@@ -27,12 +27,23 @@ public class OrderController {
                 .body(ApiResponse.success(response));
     }
 
-    // 주문 취소
-    @PostMapping("/{orderId}/cancel")
-    public ApiResponse<CancelOrderResponse> cancel(
+    // 결제 전 주문 취소
+    @PostMapping("/{orderId}/cancel-pending")
+    public ApiResponse<CancelOrderResponse> cancelPendingOrder(
+            @PathVariable Long orderId
+    ) {
+        CancelOrderResponse response =
+                orderService.cancelPendingOrder(orderId);
+
+        return ApiResponse.success(response);
+    }
+
+    // 결제 완료 후 주문 취소
+    @PostMapping("/{orderId}/cancel-completed")
+    public ApiResponse<CancelOrderResponse> cancelCompleteOrder(
             @PathVariable Long orderId,
-            @RequestBody CancelOrderRequest request) {
-        CancelOrderResponse response = orderService.cancelOrder(orderId, request);
+            @Valid @RequestBody CancelOrderRequest request) {
+        CancelOrderResponse response = orderService.cancelCompletedOrder(orderId, request);
         return ApiResponse.success(response);
     }
 

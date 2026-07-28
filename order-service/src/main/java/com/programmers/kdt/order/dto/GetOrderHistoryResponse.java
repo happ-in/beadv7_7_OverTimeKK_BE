@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 public record GetOrderHistoryResponse(
         Long orderId,
         String performanceName,
-        LocalDateTime orderdAt,
+        LocalDateTime orderedAt,
         String zone,
         int quantity,
         Long totalAmount

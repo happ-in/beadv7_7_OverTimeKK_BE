@@ -17,12 +17,14 @@ public class OrderTest {
 
     private final LocalDateTime expiresAt =
             LocalDateTime.now().plusMinutes(10);
+    private static final String HOLD_KEY = "test-hold-key";
 
     private List<OrderItem> createItems(){
+
         return List.of(
-                OrderItem.create(10L, 50_000L),
-                OrderItem.create(20L, 70_000L),
-                OrderItem.create(30L, 100_000L)
+                OrderItem.create(10L, 50_000L, HOLD_KEY),
+                OrderItem.create(20L, 70_000L, HOLD_KEY),
+                OrderItem.create(30L, 100_000L, HOLD_KEY)
         );
     }
 
@@ -198,7 +200,7 @@ public class OrderTest {
             Order order = Order.create(1L, createItems(), expiresAt);
             order.startPayment(expiresAt.minusSeconds(1));
             order.complete();
-            order.cancel();
+            order.cancelCompleted();
 
             // when & then
             assertThatThrownBy(order::expire)
@@ -224,7 +226,7 @@ public class OrderTest {
             order.complete();
 
             // when
-            order.cancel();
+            order.cancelCompleted();
 
             // then
             assertThat(order.getOrderStatus())
@@ -238,14 +240,14 @@ public class OrderTest {
             Order order = Order.create(1L, createItems(), expiresAt);
             order.startPayment(expiresAt.minusSeconds(1));
             order.complete();
-            order.cancel();
+            order.cancelCompleted();
 
             // when & then
-            assertThatThrownBy(order::cancel)
+            assertThatThrownBy(order::cancelCompleted)
                     .isInstanceOfSatisfying(
                             BusinessException.class,
                             exception -> assertThat(exception.getErrorCode())
-                                    .isEqualTo(OrderErrorCode.ORDER_ALREADY_CANCELED)
+                                    .isEqualTo(OrderErrorCode.ORDER_ALREADY_CANCELLED)
                     );
         }
 
@@ -256,7 +258,7 @@ public class OrderTest {
             Order order = Order.create(1L, createItems(), expiresAt);
 
             // when & then
-            assertThatThrownBy(order::cancel)
+            assertThatThrownBy(order::cancelCompleted)
                     .isInstanceOfSatisfying(
                             BusinessException.class,
                             exception -> assertThat(exception.getErrorCode())
@@ -272,7 +274,7 @@ public class OrderTest {
             order.expire();
 
             // when & then
-            assertThatThrownBy(order::cancel)
+            assertThatThrownBy(order::cancelCompleted)
                     .isInstanceOfSatisfying(
                             BusinessException.class,
                             exception -> assertThat(exception.getErrorCode())

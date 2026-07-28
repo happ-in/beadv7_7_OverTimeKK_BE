@@ -8,7 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "order_items")
+@Table(name = "order_item")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class OrderItem {
@@ -27,14 +27,18 @@ public class OrderItem {
     @Column(nullable = false)
     private Long ticketPrice;
 
-    private OrderItem(Long ticketId, Long ticketPrice){
+    @Column(nullable = false)
+    private String holdKey;
+
+    private OrderItem(Long ticketId, Long ticketPrice, String holdKey){
         validateTicketPrice(ticketPrice);
         this.ticketId = ticketId;
         this.ticketPrice = ticketPrice;
+        this.holdKey = holdKey;
     }
 
-    public static OrderItem create(Long ticketId, Long ticketPrice){
-        return new OrderItem(ticketId, ticketPrice);
+    public static OrderItem create(Long ticketId, Long ticketPrice, String holdKey){
+        return new OrderItem(ticketId, ticketPrice, holdKey);
 
     }
 
