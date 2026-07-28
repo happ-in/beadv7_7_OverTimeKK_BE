@@ -4,6 +4,7 @@ import com.programmers.kdt.common.response.ApiResponse;
 import com.programmers.kdt.ticket.dto.CheckTicketHoldAvailableRequest;
 import com.programmers.kdt.ticket.dto.CheckTicketHoldAvailableResponse;
 import com.programmers.kdt.ticket.dto.CreateStandbyResponse;
+import com.programmers.kdt.ticket.dto.ReleaseTicketHoldRequest;
 import com.programmers.kdt.ticket.dto.SessionStartDateResponse;
 import com.programmers.kdt.ticket.service.TicketService;
 import jakarta.validation.Valid;
@@ -42,9 +43,9 @@ public class TicketController {
         return ApiResponse.success(response);
     }
 
-    @PutMapping("/status/{ticketId}/release")
-    public ApiResponse<?> releaseHoldTicket(@PathVariable Long ticketId) {
-        ticketService.releaseHoldTicket(ticketId);
+    @PutMapping("/status/release")
+    public ApiResponse<?> releaseHoldTicket(@Valid @RequestBody ReleaseTicketHoldRequest request) {
+        ticketService.releaseHoldTicket(request);
         return ApiResponse.success(null);
     }
 }

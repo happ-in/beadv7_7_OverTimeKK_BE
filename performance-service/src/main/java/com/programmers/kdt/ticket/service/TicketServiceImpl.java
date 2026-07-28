@@ -2,18 +2,21 @@ package com.programmers.kdt.ticket.service;
 
 import com.programmers.kdt.common.TimeLimits;
 import com.programmers.kdt.common.exception.BusinessException;
+import com.programmers.kdt.common.util.TicketKeyGenerator;
 import com.programmers.kdt.performance.entity.PerformanceSession;
 import com.programmers.kdt.performance.entity.PerformanceSessionId;
 import com.programmers.kdt.performance.exception.PerformanceErrorCode;
 import com.programmers.kdt.performance.repository.PerformanceSessionRepository;
+import com.programmers.kdt.standby.event.StandbyCheckResponseEvent;
 import com.programmers.kdt.standby.event.StandbyTicketEvent;
 import com.programmers.kdt.ticket.dto.CheckTicketHoldAvailableRequest;
 import com.programmers.kdt.ticket.dto.CheckTicketHoldAvailableResponse;
 import com.programmers.kdt.ticket.dto.CreateStandbyResponse;
+import com.programmers.kdt.ticket.dto.ReleaseTicketHoldRequest;
 import com.programmers.kdt.ticket.dto.SessionStartDateResponse;
 import com.programmers.kdt.ticket.entity.Ticket;
 import com.programmers.kdt.ticket.entity.TicketStatus;
-import com.programmers.kdt.ticket.event.TryMatchEvent;
+import com.programmers.kdt.ticket.event.StandbyCheckRequestEvent;
 import com.programmers.kdt.ticket.exception.TicketErrorCode;
 import com.programmers.kdt.ticket.repository.TicketRepository;
 import lombok.RequiredArgsConstructor;
@@ -62,41 +65,36 @@ public class TicketServiceImpl implements TicketService {
 
         Ticket ticket = getTicket(ticketId);
 
+        // TODO : request에 orderType 분기 처리 필요.
+
         if (!isStandbyTicket(ticket, userId) && !isPossibleToHold(ticket)) {
             throw new BusinessException(TicketErrorCode.IMPOSSIBLE_HOLD_TICKET);
         }
 
         LocalDateTime holdExpiredAt = LocalDateTime.now().plusMinutes(TimeLimits.orderHoldTicket5Min);
-        ticket.holdTicket(userId, holdExpiredAt);
-        return new CheckTicketHoldAvailableResponse(ticket.getTicketId(), ticket.getPrice(), holdExpiredAt);
+        String holdKey = TicketKeyGenerator.generate();
+
+        ticket.holdTicket(userId, holdExpiredAt, holdKey);
+        return new CheckTicketHoldAvailableResponse(ticket.getTicketId(), ticket.getPrice(), holdExpiredAt, holdKey);
     }
 
     @Override
     @Transactional
-    public void releaseHoldTicket(Long ticketId) {
-        Ticket ticket = getTicket(ticketId);
+    public void releaseHoldTicket(ReleaseTicketHoldRequest request) {
+        Ticket ticket = getTicket(request.ticketId());
 
-        /* Todo : 현재 문제점이 API 날리면 그냥 release 됨.
-         * 비즈니스 로직 추가 필요해보임
-         * UUID 값을 통해 점유 요청했던 UUID 값이 맞는지 확인
-         * */
-
-        if (isSoldOut(ticket)) {
-            ticket.releaseToStandby();
-            eventPublisher.publishEvent(new TryMatchEvent(ticketId));
-        } else {
-            ticket.releaseToAvailable();
+        if (!request.holdKey().equals(ticket.getHoldKey())) {
+            throw new BusinessException(TicketErrorCode.HOLD_KEY_DISCREPANCY);
         }
-    }
 
-    private boolean isSoldOut(Ticket ticket) {
-        boolean isAvailableInZone = ticketRepository.existsByPerformanceIdAndSessionNumAndTicketStatusAndZone(ticket.getPerformanceId(), ticket.getSessionNum(), TicketStatus.AVAILABLE, ticket.getZone());
-        log.info("{} 공연 {}회차 {} 구역 매진이 아닌가? {}", ticket.getPerformanceId(), ticket.getSessionNum(), ticket.getZone(), isAvailableInZone);
+        boolean existsAvailableInZone = ticketRepository.existsByPerformanceIdAndSessionNumAndTicketStatusAndZone(ticket.getPerformanceId(), ticket.getSessionNum(), TicketStatus.AVAILABLE, ticket.getZone());
+        log.info("{} 공연 {}회차 {} 구역 매진이 아닌가? {}", ticket.getPerformanceId(), ticket.getSessionNum(), ticket.getZone(), existsAvailableInZone);
 
-        // 대기자 존재여부 확인
-        // Rest API 요청 중
-
-        return !isAvailableInZone;
+        if (existsAvailableInZone) {
+            ticket.releaseToAvailable();
+        } else {
+            eventPublisher.publishEvent(new StandbyCheckRequestEvent(ticket.getTicketId(), ticket.getSessionNum(), ticket.getZone()));
+        }
     }
 
     private @NonNull Ticket getTicket(Long ticketId) {
@@ -109,6 +107,18 @@ public class TicketServiceImpl implements TicketService {
     public void standbyTicket(StandbyTicketEvent event) {
         Ticket ticket = getTicket(event.ticketId());
         ticket.standbyTicket(event.standbyUserId(), event.standbyExpiredAt());
+    }
+
+    @Override
+    @Transactional
+    public void changeTicketStatusByStandby(StandbyCheckResponseEvent event) {
+        Ticket ticket = getTicket(event.ticketId());
+
+        if (event.existsStandby()) {
+            ticket.releaseToStandby();
+        } else {
+            ticket.releaseToAvailable();
+        }
     }
 
     private boolean isStandbyTicket(Ticket ticket, Long userId) {

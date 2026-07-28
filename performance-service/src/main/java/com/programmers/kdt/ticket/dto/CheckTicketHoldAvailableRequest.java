@@ -7,6 +7,8 @@ public record CheckTicketHoldAvailableRequest(
         Long ticketId,
 
         @NotNull(message = "주문자 정보를 입력해주세요.")
-        Long userId
+        Long userId,
+
+        String orderType
 ) {
 }
