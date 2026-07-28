@@ -6,8 +6,11 @@ import com.programmers.kdt.ticket.dto.CancelTicketStatusRequest;
 import com.programmers.kdt.ticket.dto.CheckTicketHoldAvailableRequest;
 import com.programmers.kdt.ticket.dto.CheckTicketHoldAvailableResponse;
 import com.programmers.kdt.ticket.dto.CreateStandbyResponse;
+import com.programmers.kdt.ticket.dto.OrderTicketResponse;
 import com.programmers.kdt.ticket.dto.ReleaseTicketHoldRequest;
 import com.programmers.kdt.ticket.dto.SessionStartDateResponse;
+
+import java.util.List;
 
 public interface TicketService {
     CreateStandbyResponse issueStandby(Long userId, Long sessionNum, String zone);
