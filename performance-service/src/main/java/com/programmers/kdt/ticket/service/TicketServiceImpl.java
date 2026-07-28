@@ -1,6 +1,7 @@
 package com.programmers.kdt.ticket.service;
 
 import com.programmers.kdt.common.TimeLimits;
+import com.programmers.kdt.common.constant.OrderTypeCode;
 import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.common.util.TicketKeyGenerator;
 import com.programmers.kdt.performance.entity.PerformanceSession;
@@ -66,15 +67,18 @@ public class TicketServiceImpl implements TicketService {
         Long ticketId = request.ticketId();
 
         Ticket ticket = getTicket(ticketId);
-
-        // TODO : request에 orderType 분기 처리 필요.
-
-        if (!isStandbyTicket(ticket, userId) && !isPossibleToHold(ticket)) {
-            throw new BusinessException(TicketErrorCode.IMPOSSIBLE_HOLD_TICKET);
-        }
-
         LocalDateTime holdExpiredAt = LocalDateTime.now().plusMinutes(TimeLimits.orderHoldTicket5Min);
         String holdKey = TicketKeyGenerator.generate();
+
+        if (OrderTypeCode.GENERAL.equals(request.orderType())) { // 일반주문
+            if (ticket.getTicketStatus() != TicketStatus.AVAILABLE) {
+                throw new BusinessException(TicketErrorCode.IMPOSSIBLE_HOLD_TICKET);
+            }
+        } else if (OrderTypeCode.STANDBY.equals(request.orderType())) { // 대기표주문
+            if (!isStandbyTicket(ticket, request.userId())) {
+                throw new BusinessException(TicketErrorCode.STANDBY_TICKET_DISCREPANCY);
+            }
+        }
 
         ticket.holdTicket(userId, holdExpiredAt, holdKey);
         return new CheckTicketHoldAvailableResponse(ticket.getTicketId(), ticket.getPrice(), holdExpiredAt, holdKey);
@@ -98,6 +102,7 @@ public class TicketServiceImpl implements TicketService {
             eventPublisher.publishEvent(new StandbyCheckRequestEvent(ticket.getPerformanceId(), ticket.getSessionNum(), ticket.getZone(),ticket.getTicketId()));
         }
     }
+
 
     private @NonNull Ticket getTicket(Long ticketId) {
         return ticketRepository.findById(ticketId)
@@ -134,9 +139,5 @@ public class TicketServiceImpl implements TicketService {
                 userId.equals(ticket.getStandbyUserId()) &&
                 LocalDateTime.now().isAfter(ticket.getStandbyExpiredAt())
         ;
-    }
-
-    private boolean isPossibleToHold(Ticket ticket) {
-        return ticket.getTicketStatus() == TicketStatus.AVAILABLE;
     }
 }
