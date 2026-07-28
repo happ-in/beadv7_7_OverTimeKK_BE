@@ -23,6 +23,7 @@ public class PointServiceImpl implements PointService {
 
 
     @Override
+    @Transactional
     public void usePoint(Long userId, Long amount, String eventId) {
         if (pointLogRepository.findByEventId(eventId).isPresent()) {
             log.warn("이미 처리된 포인트 사용 이벤트 - eventId:{}", eventId);

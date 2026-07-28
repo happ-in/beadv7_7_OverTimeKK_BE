@@ -79,7 +79,7 @@ public class Payment extends BaseTimeEntity {
     // PG사 키 등록
     public void assignPaymentKey(String paymentKey) {
         if (paymentKey == null || paymentKey.isBlank()) {
-            throw new BusinessException(PaymentErrorCode.INVALID_PAYMENT_KEY, paymentKey);
+            throw new BusinessException(PaymentErrorCode.MISSING_TRANSACTION_KEY, paymentKey);
         }
         this.paymentKey = paymentKey;
     }
