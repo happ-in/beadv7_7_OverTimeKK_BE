@@ -1,5 +1,6 @@
 package com.programmers.kdt.ticket.repository;
 
+import com.programmers.kdt.ticket.dto.OrderTicketResponse;
 import com.programmers.kdt.ticket.entity.Ticket;
 import com.programmers.kdt.ticket.entity.TicketStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -66,10 +67,19 @@ select p.performanceId
    and p.hallId = s.hall.hallId
    and psp.zone = s.zone
    and p.performanceId = :performanceId
-""")
+    """)
     int issueAdditionalTickets(@Param("performanceId") Long performanceId, @Param("sessionNum") Long sessionNum, @Param("ticketStatus") TicketStatus status);
 
     void deleteByPerformanceIdAndSessionNum(Long performanceId, Long sessionNum);
 
     boolean existsByPerformanceIdAndSessionNumAndTicketStatusAndZone(Long performanceId, Long sessionNum, TicketStatus ticketStatus, String zone);
+
+    @Query("""
+           select new com.programmers.kdt.ticket.dto.OrderTicketResponse(t.ticketId, p.title, t.zone)
+             from Ticket t, Performance p
+            where t.buyUserId = :userId
+              and t.performanceId = p.performanceId
+           order by p.endDate desc
+           """)
+    List<OrderTicketResponse> findTicketsByBuyUserId(@Param("userId") Long userId);
 }

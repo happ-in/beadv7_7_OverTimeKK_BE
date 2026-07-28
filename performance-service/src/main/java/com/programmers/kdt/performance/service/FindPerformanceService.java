@@ -11,4 +11,6 @@ public interface FindPerformanceService {
     List<FindPerformanceResponse> findPerformances(PerformanceStatus status, int page);
 
     EndedTicketsResponse findEndedPerformanceTickets(LocalDate endDate);
+
+    String getPerformanceTitle(Long performanceId);
 }

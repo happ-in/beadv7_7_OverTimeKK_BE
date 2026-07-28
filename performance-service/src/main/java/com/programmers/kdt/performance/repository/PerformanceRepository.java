@@ -35,4 +35,6 @@ public interface PerformanceRepository extends JpaRepository<Performance, Long> 
                        and t.ticketStatus = TicketStatus.RESERVED
                     """)
     List<EndedTicketResponse> findEndedTickets(@Param("endDate") LocalDate endDate);
+
+
 }

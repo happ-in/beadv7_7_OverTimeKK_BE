@@ -55,6 +55,14 @@ public class FindPerformanceServiceImpl implements FindPerformanceService {
         return new EndedTicketsResponse(endDate, endedTickets);
     }
 
+    @Override
+    public String getPerformanceTitle(Long performanceId) {
+        Performance performance = performanceRepository.findById(performanceId).orElseThrow(
+                () -> new BusinessException(PerformanceErrorCode.PERFORMANCE_NOT_FOUND)
+        );
+        return performance.getTitle();
+    }
+
     private Page<Performance> findPerformances(PerformanceStatus status, Pageable pageable) {
         if (status == null ) {
             return performanceRepository.findAll(pageable);
