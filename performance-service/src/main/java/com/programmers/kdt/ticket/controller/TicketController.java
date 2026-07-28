@@ -4,6 +4,8 @@ import com.programmers.kdt.common.response.ApiResponse;
 import com.programmers.kdt.ticket.dto.CheckTicketHoldAvailableRequest;
 import com.programmers.kdt.ticket.dto.CheckTicketHoldAvailableResponse;
 import com.programmers.kdt.ticket.dto.CreateStandbyResponse;
+import com.programmers.kdt.ticket.dto.OrderTicketRequest;
+import com.programmers.kdt.ticket.dto.OrderTicketResponse;
 import com.programmers.kdt.ticket.dto.ReleaseTicketHoldRequest;
 import com.programmers.kdt.ticket.dto.SessionStartDateResponse;
 import com.programmers.kdt.ticket.service.TicketService;
@@ -17,6 +19,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/tickets")
@@ -47,5 +51,10 @@ public class TicketController {
     public ApiResponse<?> releaseHoldTicket(@Valid @RequestBody ReleaseTicketHoldRequest request) {
         ticketService.releaseHoldTicket(request);
         return ApiResponse.success(null);
+    }
+
+    @PostMapping("/orders")
+    public ApiResponse<List<OrderTicketResponse>> orderTickets(@Valid @RequestBody OrderTicketRequest request) {
+        return ApiResponse.success(ticketService.findOrderedTicketInfo(request.userId()));
     }
 }

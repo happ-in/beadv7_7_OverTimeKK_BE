@@ -8,6 +8,7 @@ import com.programmers.kdt.performance.entity.PerformanceStatus;
 import com.programmers.kdt.performance.service.FindPerformanceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -35,5 +36,11 @@ public class FindPerformanceController {
             @JsonFormat(pattern = "yyyy-MM-dd") @RequestParam("date") LocalDate endDate) {
         EndedTicketsResponse performanceTickets = findPerformanceService.findEndedPerformanceTickets(endDate);
         return ApiResponse.success(performanceTickets);
+    }
+
+    @GetMapping("/{performanceId}/title")
+    public ApiResponse<String> findPerformanceTitle(@PathVariable Long performanceId) {
+        String title = findPerformanceService.getPerformanceTitle(performanceId);
+        return ApiResponse.success(title);
     }
 }
