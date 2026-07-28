@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.time.Duration;
@@ -45,8 +46,9 @@ public class RestPerformanceClient implements PerformanceClient {
             }
 
             return response.data().performanceDate();
-        } catch (RestClientResponseException e) {
-            if (e.getStatusCode().value() == HttpStatus.NOT_FOUND.value()) {
+        } catch (RestClientException e) {
+            if (e instanceof RestClientResponseException rcre
+                    && rcre.getStatusCode().value() == HttpStatus.NOT_FOUND.value()) {
                 throw new BusinessException(PaymentErrorCode.PERFORMANCE_DATE_NOT_FOUND, ticketId);
             }
             throw new BusinessException(PaymentErrorCode.PERFORMANCE_SERVICE_REQUEST_FAILED);

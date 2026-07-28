@@ -12,6 +12,8 @@ public enum PaymentErrorCode implements ErrorCode {
     MISSING_ORDER_ID(HttpStatus.BAD_REQUEST, "PAY400_005", "주문 정보가 없습니다."),
     MISSING_PAYMENT_ID(HttpStatus.BAD_REQUEST, "PAY400_006", "결제 정보가 없습니다."),
     ZERO_REFUND_AMOUNT(HttpStatus.BAD_REQUEST, "PAY400_007", "환불 금액은 0원보다 커야 합니다. 금액: {0}"),
+    MISSING_TRANSACTION_KEY(HttpStatus.BAD_REQUEST, "PAY400_008", "결제 승인 키(transactionKey)가 없습니다."),
+
 
     PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "PAY404_001", "결제 내역을 찾을 수 없습니다."),
     ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "PAY404_002", "주문 내역을 찾을 수 없습니다."),
@@ -19,8 +21,8 @@ public enum PaymentErrorCode implements ErrorCode {
 
     PAYMENT_ALREADY_EXISTS(HttpStatus.CONFLICT, "PAY409_001", "이미 해당 주문에 대한 결제가 존재합니다."),
     INVALID_PAYMENT_STATUS(HttpStatus.CONFLICT, "PAY409_002", "현재 결제 상태에서는 처리할 수 없는 요청입니다. 현재 상태: {0}"),
-    PAYMENT_CONCURRENT_MODIFICATION(HttpStatus.CONFLICT, "P409_003", "다른 요청과 동시에 처리되어 실패했습니다. 잠시 후 다시 시도해주세요."),
-    REFUND_ALREADY_IN_PROGRESS(HttpStatus.CONFLICT, "P409_004", "이미 처리 중인 환불 요청이 있습니다."),
+    PAYMENT_CONCURRENT_MODIFICATION(HttpStatus.CONFLICT, "PAY409_003", "다른 요청과 동시에 처리되어 실패했습니다. 잠시 후 다시 시도해주세요."),
+    REFUND_ALREADY_IN_PROGRESS(HttpStatus.CONFLICT, "PAY409_004", "이미 처리 중인 환불 요청이 있습니다."),
 
     REFUND_PERIOD_EXPIRED(HttpStatus.UNPROCESSABLE_CONTENT, "PAY422_001", "환불 가능 기간이 지나 취소할 수 없습니다."),
 

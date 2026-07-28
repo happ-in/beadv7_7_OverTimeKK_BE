@@ -9,6 +9,7 @@ import com.programmers.kdt.payment.dto.*;
 import com.programmers.kdt.payment.entity.Payment;
 import com.programmers.kdt.payment.entity.PaymentRefund;
 import com.programmers.kdt.payment.entity.PaymentStatus;
+import com.programmers.kdt.payment.entity.RefundPolicy;
 import com.programmers.kdt.payment.exception.PaymentErrorCode;
 import com.programmers.kdt.payment.exception.PointErrorCode;
 import com.programmers.kdt.payment.repository.PaymentRefundRepository;
@@ -107,6 +108,9 @@ public class PaymentServiceImpl implements PaymentService{
         // 결제 요청 성공 & 실패 분기
         if (approveResult.success()) {
             payment.approve();
+            Order order = orderRepository.findById(payment.getOrderId())
+                    .orElseThrow(() -> new BusinessException(PaymentErrorCode.ORDER_NOT_FOUND));
+            order.complete();
         } else {
             payment.fail();
             rollbackFailedPoint(payment.getOrderId(), usedPoint);

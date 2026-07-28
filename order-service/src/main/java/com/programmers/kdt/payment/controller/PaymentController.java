@@ -32,7 +32,7 @@ public class PaymentController {
     @PostMapping("/{paymentId}/confirm")
     public ApiResponse<ConfirmPaymentResponse> confirm(
             @PathVariable Long paymentId,
-            @RequestBody ConfirmPaymentRequest request
+            @Valid @RequestBody ConfirmPaymentRequest request
     ) {
         ConfirmPaymentResponse response = paymentService.confirm(paymentId, request);
         return ApiResponse.success(response);
