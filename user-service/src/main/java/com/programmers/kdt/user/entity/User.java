@@ -60,5 +60,7 @@ public class User {
         return this.status == UserStatus.WITHDRAWN;
     }
 
-    // TODO: 비즈니스 메서드(withdraw)
+    public void withdraw() {
+        this.status = UserStatus.WITHDRAWN;
+    }
 }

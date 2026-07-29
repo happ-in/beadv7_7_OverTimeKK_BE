@@ -6,6 +6,7 @@ import com.programmers.kdt.user.dto.LoginResponse;
 import com.programmers.kdt.user.dto.SignUpBusinessRequest;
 import com.programmers.kdt.user.dto.SignUpIndividualRequest;
 import com.programmers.kdt.user.dto.SignUpUserResponse;
+import com.programmers.kdt.user.dto.WithdrawRequest;
 import com.programmers.kdt.user.entity.User;
 import com.programmers.kdt.user.exception.UserErrorCode;
 import com.programmers.kdt.user.jwt.JwtProvider;
@@ -80,5 +81,20 @@ public class UserService {
         }
     }
 
-    // TODO: 탈퇴, 조회 기능 추가
+    @Transactional
+    public void withdraw(Long userId, WithdrawRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+
+        if (user.isWithdrawn()) {
+            throw new BusinessException(UserErrorCode.WITHDRAWN_USER);
+        }
+        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
+            throw new BusinessException(UserErrorCode.INVALID_PASSWORD);
+        }
+
+        user.withdraw();
+    }
+
+    // TODO: 조회 기능 추가
 }
