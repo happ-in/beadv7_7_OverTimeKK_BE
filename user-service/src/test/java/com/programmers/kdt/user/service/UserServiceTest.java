@@ -1,10 +1,14 @@
 package com.programmers.kdt.user.service;
 
 import com.programmers.kdt.common.exception.BusinessException;
+import com.programmers.kdt.user.dto.LoginRequest;
+import com.programmers.kdt.user.dto.LoginResponse;
 import com.programmers.kdt.user.dto.SignUpBusinessRequest;
 import com.programmers.kdt.user.dto.SignUpUserResponse;
 import com.programmers.kdt.user.entity.User;
+import com.programmers.kdt.user.entity.UserStatus;
 import com.programmers.kdt.user.exception.UserErrorCode;
+import com.programmers.kdt.user.jwt.JwtProvider;
 import com.programmers.kdt.user.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,6 +17,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
+
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -29,6 +35,9 @@ class UserServiceTest {
 
     @Mock
     private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private JwtProvider jwtProvider;
 
     @InjectMocks
     private UserService userService;
@@ -68,6 +77,58 @@ class UserServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessage(UserErrorCode.DUPLICATE_BUSINESS_NUMBER.getMessage());
         verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void 로그인_성공() {
+        LoginRequest request = new LoginRequest("user1", "password123");
+        User user = User.signUpIndividual("user1", "user1@example.com", "encodedPassword");
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        given(userRepository.findByUsername(request.username())).willReturn(Optional.of(user));
+        given(passwordEncoder.matches(request.password(), user.getPassword())).willReturn(true);
+        given(jwtProvider.createToken(user.getUserId(), user.getUsername())).willReturn("issued-token");
+
+        LoginResponse response = userService.login(request);
+
+        assertThat(response.accessToken()).isEqualTo("issued-token");
+    }
+
+    @Test
+    void 존재하지_않는_아이디로_로그인시_예외() {
+        LoginRequest request = new LoginRequest("noSuchUser", "password123");
+        given(userRepository.findByUsername(request.username())).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.login(request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(UserErrorCode.USER_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    void 비밀번호_불일치로_로그인시_예외() {
+        LoginRequest request = new LoginRequest("user1", "wrongPassword");
+        User user = User.signUpIndividual("user1", "user1@example.com", "encodedPassword");
+
+        given(userRepository.findByUsername(request.username())).willReturn(Optional.of(user));
+        given(passwordEncoder.matches(request.password(), user.getPassword())).willReturn(false);
+
+        assertThatThrownBy(() -> userService.login(request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(UserErrorCode.INVALID_PASSWORD.getMessage());
+    }
+
+    @Test
+    void 탈퇴한_계정으로_로그인시_예외() {
+        LoginRequest request = new LoginRequest("user1", "password123");
+        User user = User.signUpIndividual("user1", "user1@example.com", "encodedPassword");
+        ReflectionTestUtils.setField(user, "status", UserStatus.WITHDRAWN);
+
+        given(userRepository.findByUsername(request.username())).willReturn(Optional.of(user));
+        given(passwordEncoder.matches(request.password(), user.getPassword())).willReturn(true);
+
+        assertThatThrownBy(() -> userService.login(request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(UserErrorCode.WITHDRAWN_USER.getMessage());
     }
 
 }
