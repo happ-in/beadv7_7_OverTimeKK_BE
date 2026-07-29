@@ -77,6 +77,13 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public void completeOrder(Long orderId){
         Order order = findOrder(orderId);
+
+        ticketClient.reserveTicket(new TicketReserveRequest(
+                order.getTicketId(),
+                order.getItems().getFirst().getHoldKey(),
+                order.getUserId()
+        ));
+
         order.complete();
     }
 
