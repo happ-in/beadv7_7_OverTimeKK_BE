@@ -8,6 +8,7 @@ import com.programmers.kdt.ticket.dto.CheckTicketHoldAvailableResponse;
 import com.programmers.kdt.ticket.dto.CreateStandbyResponse;
 import com.programmers.kdt.ticket.dto.OrderTicketResponse;
 import com.programmers.kdt.ticket.dto.ReleaseTicketHoldRequest;
+import com.programmers.kdt.ticket.dto.ReservedTicketRequest;
 import com.programmers.kdt.ticket.dto.SessionStartDateResponse;
 import com.programmers.kdt.ticket.dto.TicketZoneRequest;
 import com.programmers.kdt.ticket.dto.TicketZonesResponse;
@@ -28,6 +29,8 @@ public interface TicketService {
     void changeTicketStatusByStandby(StandbyCheckResponseEvent event);
 
     void cancelReservedTicket(CancelTicketStatusRequest request);
+
+    void reservedTicket(ReservedTicketRequest request);
 
     List<OrderTicketResponse> findOrderedTicketInfo(Long userId);
 

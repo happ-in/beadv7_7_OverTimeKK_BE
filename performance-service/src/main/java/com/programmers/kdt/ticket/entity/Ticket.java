@@ -93,4 +93,9 @@ public class Ticket extends BaseTimeEntity {
         this.ticketStatus = TicketStatus.CANCELED;
         this.buyUserId = null;
     }
+
+    public void reservedTicket(Long buyUserId) {
+        this.ticketStatus = TicketStatus.RESERVED;
+        this.buyUserId = buyUserId;
+    }
 }

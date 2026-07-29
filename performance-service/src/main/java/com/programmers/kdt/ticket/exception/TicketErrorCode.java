@@ -17,6 +17,8 @@ public enum TicketErrorCode implements ErrorCode {
     NOT_RESERVED_TICKET(HttpStatus.UNPROCESSABLE_CONTENT, "TKT422_006", "예매되지 않은 티켓입니다."),
     TICKET_OWNER_DISCREPANCY(HttpStatus.UNPROCESSABLE_CONTENT, "TKT422_006", "티켓 구매자가 아닙니다."),
     TICKET_IS_NOT_HELD(HttpStatus.UNPROCESSABLE_CONTENT, "TKT422_007", "점유되지 않은 티켓입니다."),
+    HOLD_TICKET_EXPIRED(HttpStatus.UNPROCESSABLE_CONTENT, "TKT422_008", "티켓 점유 시간이 만료되어 결제할 수 없습니다."),
+    ALREADY_RESERVED_TICKET(HttpStatus.UNPROCESSABLE_CONTENT, "TKT422_000", "이미 결제 완료된 티켓입니다."),
     ;
 
     private final HttpStatus httpStatus;
