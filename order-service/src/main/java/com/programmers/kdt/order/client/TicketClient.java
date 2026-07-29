@@ -11,5 +11,5 @@ public interface TicketClient {
     void reserveTicket(TicketReserveRequest ticketReserveRequest);
     void releaseSeat(TicketReleaseRequest request);
     void cancelTicket(TicketCancelRequest request);
-    List<TicketInfo> getTickets(Long userId);
+    List<TicketInfo> getTickets(OrderTicketRequest request);
 }
