@@ -7,6 +7,7 @@ import com.programmers.kdt.order.dto.TicketHoldResult;
 import com.programmers.kdt.order.dto.TicketReleaseRequest;
 import com.programmers.kdt.order.dto.TicketCancelRequest;
 import com.programmers.kdt.order.dto.TicketReserveRequest;
+import com.programmers.kdt.order.dto.OrderTicketRequest;
 import com.programmers.kdt.order.exception.OrderErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.ParameterizedTypeReference;
@@ -82,10 +83,11 @@ public class TicketApiClient implements TicketClient {
     }
 
     @Override
-    public List<TicketInfo> getTickets(Long userId) {
+    public List<TicketInfo> getTickets(OrderTicketRequest request){
         try {
-            ApiResponse<List<TicketInfo>> response = restClient.get()
-                    .uri("/api/tickets/orders?userId={userId}", userId)
+            ApiResponse<List<TicketInfo>> response = restClient.post()
+                    .uri("/api/tickets/orders")
+                    .body(request)
                     .retrieve()
                     .body(new ParameterizedTypeReference<
                             ApiResponse<List<TicketInfo>>

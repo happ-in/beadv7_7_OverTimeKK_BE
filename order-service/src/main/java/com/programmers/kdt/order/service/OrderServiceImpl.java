@@ -147,7 +147,7 @@ public class OrderServiceImpl implements OrderService {
             return List.of();
         }
 
-        List<TicketInfo> ticketInfos = ticketClient.getTickets(userId);
+        List<TicketInfo> ticketInfos = ticketClient.getTickets(new OrderTicketRequest(userId));
 
         Map<Long, TicketInfo> ticketInfoMap = ticketInfos.stream()
                 .collect(Collectors.toMap(
