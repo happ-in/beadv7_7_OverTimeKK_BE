@@ -1,11 +1,14 @@
 package com.programmers.kdt.user.service;
 
 import com.programmers.kdt.common.exception.BusinessException;
+import com.programmers.kdt.user.dto.LoginRequest;
+import com.programmers.kdt.user.dto.LoginResponse;
 import com.programmers.kdt.user.dto.SignUpBusinessRequest;
 import com.programmers.kdt.user.dto.SignUpIndividualRequest;
 import com.programmers.kdt.user.dto.SignUpUserResponse;
 import com.programmers.kdt.user.entity.User;
 import com.programmers.kdt.user.exception.UserErrorCode;
+import com.programmers.kdt.user.jwt.JwtProvider;
 import com.programmers.kdt.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -21,6 +24,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtProvider jwtProvider;
 
     @Transactional
     public SignUpUserResponse signUpIndividual(SignUpIndividualRequest request) {
@@ -46,6 +50,21 @@ public class UserService {
         return SignUpUserResponse.from(saved);
     }
 
+    public LoginResponse login(LoginRequest request) {
+        User user = userRepository.findByUsername(request.username())
+                .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+
+        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
+            throw new BusinessException(UserErrorCode.INVALID_PASSWORD);
+        }
+        if (user.isWithdrawn()) {
+            throw new BusinessException(UserErrorCode.WITHDRAWN_USER);
+        }
+
+        String accessToken = jwtProvider.createToken(user.getUserId(), user.getUsername());
+        return new LoginResponse(accessToken);
+    }
+
     private void validateDuplicate(String username, String email) {
         if (userRepository.existsByUsername(username)) {
             throw new BusinessException(UserErrorCode.DUPLICATE_USERNAME);
@@ -61,5 +80,5 @@ public class UserService {
         }
     }
 
-    // TODO: 로그인, 탈퇴, 조회 기능 추가
+    // TODO: 탈퇴, 조회 기능 추가
 }

@@ -6,7 +6,10 @@ import org.springframework.http.HttpStatus;
 public enum UserErrorCode implements ErrorCode {
     DUPLICATE_USERNAME(HttpStatus.CONFLICT, "USR409_001", "이미 사용 중인 아이디입니다."),
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, "USR409_002", "이미 사용 중인 이메일입니다."),
-    DUPLICATE_BUSINESS_NUMBER(HttpStatus.CONFLICT, "USR409_003", "이미 등록된 사업자번호입니다.");
+    DUPLICATE_BUSINESS_NUMBER(HttpStatus.CONFLICT, "USR409_003", "이미 등록된 사업자번호입니다."),
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USR404_001", "존재하지 않는 아이디입니다."),
+    INVALID_PASSWORD(HttpStatus.UNAUTHORIZED, "USR401_001", "비밀번호가 일치하지 않습니다."),
+    WITHDRAWN_USER(HttpStatus.FORBIDDEN, "USR403_001", "탈퇴한 계정입니다.");
 
     private final HttpStatus httpStatus;
     private final String code;
