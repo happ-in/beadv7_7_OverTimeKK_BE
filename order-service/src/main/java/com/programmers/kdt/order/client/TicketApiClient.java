@@ -2,6 +2,7 @@ package com.programmers.kdt.order.client;
 
 import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.common.response.ApiResponse;
+import com.programmers.kdt.order.dto.TicketCancelRequest;
 import com.programmers.kdt.order.dto.TicketHoldRequest;
 import com.programmers.kdt.order.dto.TicketHoldResult;
 import com.programmers.kdt.order.dto.TicketReleaseRequest;
@@ -39,6 +40,24 @@ public class TicketApiClient implements TicketClient {
     }
 
     @Override
+    public void releaseSeat(TicketReleaseRequest request){
+        restClient.put()
+                .uri("/api/tickets/status/release")
+                .body(request)
+                .retrieve()
+                .toBodilessEntity();
+    }
+
+    @Override
+    public void cancelTicket(TicketCancelRequest request){
+        restClient.put()
+                .uri("/api/tickets/status/canceled/release")
+                .body(request)
+                .retrieve()
+                .toBodilessEntity();
+    }
+
+    @Override
     public List<TicketInfo> getTickets(Long userId) {
         try {
             ApiResponse<List<TicketInfo>> response = restClient.get()
@@ -59,14 +78,5 @@ public class TicketApiClient implements TicketClient {
         } catch (RestClientResponseException e) {
             throw new BusinessException(OrderErrorCode.TICKET_INFO_GET_FAILED);
         }
-    }
-
-    @Override
-    public void releaseSeat(TicketReleaseRequest request){
-        restClient.put()
-                .uri("/api/tickets/status/release")
-                .body(request)
-                .retrieve()
-                .toBodilessEntity();
     }
 }
