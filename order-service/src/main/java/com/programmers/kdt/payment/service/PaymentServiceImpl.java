@@ -3,6 +3,7 @@ package com.programmers.kdt.payment.service;
 import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.order.entity.Order;
 import com.programmers.kdt.order.repository.OrderRepository;
+import com.programmers.kdt.order.service.OrderService;
 import com.programmers.kdt.payment.client.pg.*;
 import com.programmers.kdt.payment.client.refund.*;
 import com.programmers.kdt.payment.dto.*;
@@ -16,6 +17,8 @@ import com.programmers.kdt.payment.repository.PaymentRefundRepository;
 import com.programmers.kdt.payment.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -44,6 +47,10 @@ public class PaymentServiceImpl implements PaymentService{
     private final OrderClient orderClient;
     private final PgClient pgClient;
     private final PointService pointService;
+
+    @Lazy
+    @Autowired
+    private OrderService orderService;
 
 
     // 결제 생성
@@ -108,9 +115,7 @@ public class PaymentServiceImpl implements PaymentService{
         // 결제 요청 성공 & 실패 분기
         if (approveResult.success()) {
             payment.approve();
-            Order order = orderRepository.findById(payment.getOrderId())
-                    .orElseThrow(() -> new BusinessException(PaymentErrorCode.ORDER_NOT_FOUND));
-            order.complete();
+            orderService.completeOrder(payment.getOrderId());
         } else {
             payment.fail();
             rollbackFailedPoint(payment.getOrderId(), usedPoint);
