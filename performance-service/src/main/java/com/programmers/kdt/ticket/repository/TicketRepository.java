@@ -88,7 +88,7 @@ select p.performanceId
             select new com.programmers.kdt.ticket.dto.TicketZoneResponse(t.ticketId, t.seatRow, t.seatNum, t.ticketStatus)
               from Ticket t
              where t.performanceId = :performanceId
-               and t.seatNum = :sessionNum
+               and t.sessionNum = :sessionNum
                and t.zone = :zone
             """)
     List<TicketZoneResponse> findByZoneAndPerformance(@Param("performanceId") Long performanceId, @Param("sessionNum") Long sessionNum, @Param("zone") String zone);

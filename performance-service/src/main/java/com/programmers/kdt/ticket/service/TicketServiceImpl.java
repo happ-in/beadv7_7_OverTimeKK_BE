@@ -19,6 +19,7 @@ import com.programmers.kdt.ticket.dto.CheckTicketHoldAvailableResponse;
 import com.programmers.kdt.ticket.dto.CreateStandbyResponse;
 import com.programmers.kdt.ticket.dto.OrderTicketResponse;
 import com.programmers.kdt.ticket.dto.ReleaseTicketHoldRequest;
+import com.programmers.kdt.ticket.dto.ReservedTicketRequest;
 import com.programmers.kdt.ticket.dto.SessionStartDateResponse;
 import com.programmers.kdt.ticket.dto.TicketZoneRequest;
 import com.programmers.kdt.ticket.dto.TicketZoneResponse;
@@ -85,7 +86,7 @@ public class TicketServiceImpl implements TicketService {
     @Transactional
     public void releaseHoldTicket(ReleaseTicketHoldRequest request) {
         Ticket ticket = getTicket(request.ticketId());
-        validateReleasePossibleHoldTicket(ticket, request.holdKey());
+        validatePossibleReleasedHoldTicket(ticket, request.holdKey());
         releaseTicket(ticket);
     }
 
@@ -129,6 +130,20 @@ public class TicketServiceImpl implements TicketService {
         releaseTicket(ticket);
     }
 
+    @Override
+    @Transactional
+    public void reservedTicket(ReservedTicketRequest request) {
+        Ticket ticket = getTicket(request.ticketId());
+        validatePossibleReservedHoldTicket(ticket, request.holdKey());
+        ticket.reservedTicket(request.userId());
+    }
+
+    private static void validateNotReservedTicket(Ticket ticket) {
+        if (ticket.getTicketStatus() == TicketStatus.RESERVED) {
+            throw new BusinessException(TicketErrorCode.ALREADY_RESERVED_TICKET);
+        }
+    }
+
     private void validateTicketConditionForHold(String orderType, Ticket ticket, Long userId) {
         switch (orderType) {
             case OrderTypeCode.GENERAL -> validateAvailableToHoldTicket(ticket);
@@ -149,15 +164,32 @@ public class TicketServiceImpl implements TicketService {
         }
     }
 
-    private static void validateReleasePossibleHoldTicket(Ticket ticket, String holdKey) {
-        if (ticket.getTicketStatus() != TicketStatus.HOLD) {
-            throw new BusinessException(TicketErrorCode.TICKET_IS_NOT_HELD);
+    private static void validatePossibleReservedHoldTicket(Ticket ticket, String holdKey) {
+        validateNotReservedTicket(ticket);
+        validateHoldStatus(ticket);
+
+        if (LocalDateTime.now().isAfter(ticket.getHoldExpiredAt())) {
+            throw  new BusinessException(TicketErrorCode.HOLD_TICKET_EXPIRED);
         }
+
+        if (holdKey == null || !holdKey.equals(ticket.getHoldKey())) {
+            throw new BusinessException(TicketErrorCode.HOLD_KEY_DISCREPANCY);
+        }
+    }
+
+    private static void validatePossibleReleasedHoldTicket(Ticket ticket, String holdKey) {
+        validateHoldStatus(ticket);
 
         if (LocalDateTime.now().isBefore(ticket.getHoldExpiredAt())) {
             if (holdKey == null || !holdKey.equals(ticket.getHoldKey())) {
                 throw new BusinessException(TicketErrorCode.HOLD_KEY_DISCREPANCY);
             }
+        }
+    }
+
+    private static void validateHoldStatus(Ticket ticket) {
+        if (ticket.getTicketStatus() != TicketStatus.HOLD) {
+            throw new BusinessException(TicketErrorCode.TICKET_IS_NOT_HELD);
         }
     }
 

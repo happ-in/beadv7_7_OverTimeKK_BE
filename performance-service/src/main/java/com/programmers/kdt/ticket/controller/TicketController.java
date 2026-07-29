@@ -8,6 +8,7 @@ import com.programmers.kdt.ticket.dto.CreateStandbyResponse;
 import com.programmers.kdt.ticket.dto.OrderTicketRequest;
 import com.programmers.kdt.ticket.dto.OrderTicketResponse;
 import com.programmers.kdt.ticket.dto.ReleaseTicketHoldRequest;
+import com.programmers.kdt.ticket.dto.ReservedTicketRequest;
 import com.programmers.kdt.ticket.dto.SessionStartDateResponse;
 import com.programmers.kdt.ticket.dto.TicketZoneRequest;
 import com.programmers.kdt.ticket.dto.TicketZonesResponse;
@@ -59,6 +60,12 @@ public class TicketController {
     @PutMapping("/status/canceled/release")
     public ApiResponse<?> releaseCanceledTicket(@Valid @RequestBody CancelTicketStatusRequest request) {
         ticketService.cancelReservedTicket(request);
+        return ApiResponse.success(null);
+    }
+
+    @PutMapping("/status/reserved")
+    public ApiResponse<?> reservedTicket(@Valid @RequestBody ReservedTicketRequest request) {
+        ticketService.reservedTicket(request);
         return ApiResponse.success(null);
     }
 
