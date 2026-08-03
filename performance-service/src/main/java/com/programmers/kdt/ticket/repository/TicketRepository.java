@@ -9,11 +9,14 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface TicketRepository extends JpaRepository<Ticket, Long> {
     List<Ticket> findByPerformanceIdAndSessionNumAndZone(
             Long performanceId, Long sessionNum, String zone);
+
+    List<Ticket> findByTicketStatusAndHoldExpiredAtBefore(TicketStatus ticketStatus, LocalDateTime dateTime);
 
     // 요청 zone 중 아직 잔여 좌석(AVAILABLE)이 남아있는 zone 목록.
     // 비어 있으면 = 요청 zone 전부 매진 → 대기 신청 가능.
