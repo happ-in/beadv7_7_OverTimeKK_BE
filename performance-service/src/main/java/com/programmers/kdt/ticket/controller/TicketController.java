@@ -12,6 +12,7 @@ import com.programmers.kdt.ticket.dto.ReservedTicketRequest;
 import com.programmers.kdt.ticket.dto.SessionStartDateResponse;
 import com.programmers.kdt.ticket.dto.TicketZoneRequest;
 import com.programmers.kdt.ticket.dto.TicketZonesResponse;
+import com.programmers.kdt.ticket.service.ChangeTicketStatusService;
 import com.programmers.kdt.ticket.service.TicketService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ import java.util.List;
 public class TicketController {
 
     private final TicketService ticketService;
+    private final ChangeTicketStatusService changeTicketStatusService;
 
     @PostMapping("/standby")
     public CreateStandbyResponse issueStandby(
@@ -47,25 +49,25 @@ public class TicketController {
 
     @PutMapping("/status/hold")
     public ApiResponse<CheckTicketHoldAvailableResponse> checkTicketHoldAvailable(@Valid @RequestBody CheckTicketHoldAvailableRequest request) {
-        CheckTicketHoldAvailableResponse response = ticketService.checkTicketHoldStatus(request);
+        CheckTicketHoldAvailableResponse response = changeTicketStatusService.checkTicketHoldStatus(request);
         return ApiResponse.success(response);
     }
 
     @PutMapping("/status/release")
     public ApiResponse<?> releaseHoldTicket(@Valid @RequestBody ReleaseTicketHoldRequest request) {
-        ticketService.releaseHoldTicket(request);
+        changeTicketStatusService.releaseHoldTicket(request);
         return ApiResponse.success(null);
     }
 
     @PutMapping("/status/canceled/release")
     public ApiResponse<?> releaseCanceledTicket(@Valid @RequestBody CancelTicketStatusRequest request) {
-        ticketService.cancelReservedTicket(request);
+        changeTicketStatusService.cancelReservedTicket(request);
         return ApiResponse.success(null);
     }
 
     @PutMapping("/status/reserved")
     public ApiResponse<?> reservedTicket(@Valid @RequestBody ReservedTicketRequest request) {
-        ticketService.reservedTicket(request);
+        changeTicketStatusService.reservedTicket(request);
         return ApiResponse.success(null);
     }
 
