@@ -5,7 +5,8 @@ import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.common.exception.CommonErrorCode;
 import com.programmers.kdt.order.entity.Order;
 import com.programmers.kdt.order.repository.OrderRepository;
-import com.programmers.kdt.order.service.OrderService;
+import com.programmers.kdt.payment.client.pay.OrderCompletionEventPublisher;
+import com.programmers.kdt.payment.client.pay.PaymentConfirmEvent;
 import com.programmers.kdt.payment.client.pg.*;
 import com.programmers.kdt.payment.client.refund.OrderClient;
 import com.programmers.kdt.payment.client.refund.PerformanceClient;
@@ -60,13 +61,15 @@ class PaymentServiceImplTest {
     private RefundEventPublisher refundEventPublisher;
     @Mock
     private PointService pointService;
+    @Mock
+    private OrderCompletionEventPublisher orderCompletionEventPublisher;
 
     private PaymentService paymentService;
 
 
     @BeforeEach
     void setUp() {
-        paymentService = new PaymentServiceImpl(paymentRepository, orderRepository, paymentRefundRepository, refundEventPublisher, performanceClient, orderClient, pgClient, pointService);
+        paymentService = new PaymentServiceImpl(paymentRepository, orderRepository, paymentRefundRepository, refundEventPublisher, performanceClient, orderClient, pgClient, pointService, orderCompletionEventPublisher);
 
     }
 
@@ -288,6 +291,7 @@ class PaymentServiceImplTest {
             paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123"));
 
             assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.FAILED);
+            verifyNoInteractions(orderCompletionEventPublisher);
 
         }
 
@@ -302,6 +306,7 @@ class PaymentServiceImplTest {
                     .isEqualTo(PaymentErrorCode.PAYMENT_NOT_FOUND);
 
             verifyNoInteractions(pgClient);
+            verifyNoInteractions(orderCompletionEventPublisher);
 
         }
 
@@ -318,6 +323,7 @@ class PaymentServiceImplTest {
                     .isEqualTo(PaymentErrorCode.INVALID_PAYMENT_STATUS);
 
             verifyNoInteractions(pgClient);
+            verifyNoInteractions(orderCompletionEventPublisher);
         }
 
         @Test
@@ -332,6 +338,7 @@ class PaymentServiceImplTest {
                     .isEqualTo(PaymentErrorCode.PG_REQUEST_FAILED);
 
             assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.READY);
+            verifyNoInteractions(orderCompletionEventPublisher);
         }
 
         @Test
@@ -381,6 +388,24 @@ class PaymentServiceImplTest {
             paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123"));
 
             verify(pointService, never()).rollbackPoint(any(), any(), any(), anyBoolean());
+        }
+
+        @Test
+        @DisplayName("PG 승인이 성공하면 PaymentConfirmEvent가 발생한다.")
+        void confirmSuccessPublishesOrderCompletionEvent() {
+            when (paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
+
+            PgApproveResult approveResult = mock(PgApproveResult.class);
+            when(approveResult.success()).thenReturn(true);
+            when(pgClient.approve(any())).thenReturn(approveResult);
+
+            paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123"));
+
+            ArgumentCaptor<PaymentConfirmEvent> captor =
+                    ArgumentCaptor.forClass(PaymentConfirmEvent.class);
+            verify(orderCompletionEventPublisher).publish(captor.capture());
+            assertThat(captor.getValue().orderId()).isEqualTo(payment.getOrderId());
+            assertThat(captor.getValue().paymentId()).isEqualTo(payment.getId());
         }
     }
 
