@@ -1,9 +1,7 @@
 package com.programmers.kdt.order.service;
 
-import com.programmers.kdt.common.constant.OrderTypeCode;
 import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.order.client.TicketClient;
-import com.programmers.kdt.order.dto.TicketHoldResult;
 import com.programmers.kdt.order.client.TicketInfo;
 import com.programmers.kdt.order.dto.*;
 import com.programmers.kdt.order.entity.Order;
@@ -39,25 +37,19 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public CreateOrderResponse createOrder(CreateOrderRequest request) {
-        validateOrderType(request.orderType());
 
-        // 존재하는 좌석인지, 좌석 점유 여부 확인 및 점유 요청
-        TicketHoldRequest ticketRequest = TicketHoldRequest.from(request);
-        TicketHoldResult holdTicket = ticketClient.holdSeat(ticketRequest);
+        // 티켓 검증
+        ValidateTicketRequest ticketRequest = ValidateTicketRequest.from(request);
+        ticketClient.validateTicket(ticketRequest);
 
         // 주문 항목 생성 - 현재는 티켓 1매만 가능
-        OrderItem item = OrderItem.create(holdTicket.ticketId(), holdTicket.price(), holdTicket.holdKey());
+        OrderItem item = OrderItem.create(request.ticketId(), request.price(), request.holdKey());
 
         // 주문 생성 및 저장 -- 티켓 만료 시각을 주문 만료 시각으로 설정
-        Order order = Order.create(request.userId(), List.of(item), holdTicket.holdExpiredAt());
+        Order order = Order.create(request.userId(), List.of(item), request.expiredAt());
         Order savedOrder = orderRepository.save(order);
 
         return CreateOrderResponse.from(savedOrder);
-    }
-    private void validateOrderType(String orderType){
-        if(!OrderTypeCode.isSupported(orderType)){
-            throw new BusinessException(OrderErrorCode.INVALID_ORDER_TYPE);
-        }
     }
 
     @Override

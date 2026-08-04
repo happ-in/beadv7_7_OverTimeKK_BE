@@ -11,6 +11,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Entity
 @Table(
@@ -72,10 +73,7 @@ public class Order extends BaseTimeEntity {
 
     // 주문 검증
     private void validateItems(List<OrderItem> items){
-        if(items == null || items.isEmpty()){
-            throw new BusinessException(OrderErrorCode.ORDER_ITEMS_REQUIRED);
-        }
-        if(items.stream().anyMatch(item -> item==null)){
+        if(items == null || items.isEmpty() || items.stream().anyMatch(Objects::isNull)){
             throw new BusinessException(OrderErrorCode.ORDER_ITEMS_REQUIRED);
         }
     }
