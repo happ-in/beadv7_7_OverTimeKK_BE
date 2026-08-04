@@ -10,7 +10,7 @@ import com.programmers.kdt.user.dto.UserResponse;
 import com.programmers.kdt.user.dto.WithdrawRequest;
 import com.programmers.kdt.user.entity.User;
 import com.programmers.kdt.user.exception.UserErrorCode;
-import com.programmers.kdt.user.jwt.JwtProvider;
+import com.programmers.kdt.common.jwt.JwtProvider;
 import com.programmers.kdt.user.jwt.RefreshTokenStore;
 import com.programmers.kdt.user.repository.UserRepository;
 import io.jsonwebtoken.JwtException;

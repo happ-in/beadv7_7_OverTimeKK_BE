@@ -1,4 +1,4 @@
-package com.programmers.kdt.user.jwt;
+package com.programmers.kdt.common.jwt;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtBuilder;
@@ -14,7 +14,9 @@ import java.util.Date;
 
 /**
  * User 엔티티/UserRepository에 의존하지 않는 순수 JWT 발급/검증 컴포넌트.
- * 추후 common 모듈로 이동해 order/performance-service에서도 재사용할 것을 염두에 둠.
+ * order/performance-service에서도 재사용하도록 common으로 이동함.
+ * 이 빈이 만들어지려면 jwt.secret/jwt.expiration-millis/jwt.refresh-expiration-millis가
+ * 해당 서비스의 application.properties에 있어야 함.
  */
 @Component
 public class JwtProvider {
