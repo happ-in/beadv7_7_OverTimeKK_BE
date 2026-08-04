@@ -4,8 +4,10 @@ import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.user.dto.LoginRequest;
 import com.programmers.kdt.user.dto.LoginResponse;
 import com.programmers.kdt.user.dto.SignUpBusinessRequest;
-import com.programmers.kdt.user.dto.SignUpUserResponse;
+import com.programmers.kdt.user.dto.SignUpIndividualRequest;
+import com.programmers.kdt.user.dto.UserResponse;
 import com.programmers.kdt.user.dto.WithdrawRequest;
+import com.programmers.kdt.user.entity.Role;
 import com.programmers.kdt.user.entity.User;
 import com.programmers.kdt.user.entity.UserStatus;
 import com.programmers.kdt.user.exception.UserErrorCode;
@@ -16,6 +18,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -58,10 +61,11 @@ class UserServiceTest {
         ReflectionTestUtils.setField(saved, "userId", 1L);
         given(userRepository.save(any(User.class))).willReturn(saved);
 
-        SignUpUserResponse response = userService.signUpBusiness(request);
+        UserResponse response = userService.signUpBusiness(request);
 
         assertThat(response.userId()).isEqualTo(1L);
         assertThat(response.username()).isEqualTo("business1");
+        assertThat(response.userType()).isEqualTo(Role.BUSINESS);
         verify(userRepository).save(any(User.class));
     }
 
@@ -78,6 +82,19 @@ class UserServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessage(UserErrorCode.DUPLICATE_BUSINESS_NUMBER.getMessage());
         verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void 회원가입_시_저장_직전_동시_가입으로_유니크_제약_위반되면_중복_예외로_변환() {
+        SignUpIndividualRequest request = new SignUpIndividualRequest("user1", "user1@example.com", "password123");
+        given(userRepository.existsByUsername(request.username())).willReturn(false, true);
+        given(userRepository.existsByEmail(request.email())).willReturn(false);
+        given(passwordEncoder.encode(request.password())).willReturn("encodedPassword");
+        given(userRepository.save(any(User.class))).willThrow(new DataIntegrityViolationException("duplicate entry"));
+
+        assertThatThrownBy(() -> userService.signUpIndividual(request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(UserErrorCode.DUPLICATE_USERNAME.getMessage());
     }
 
     @Test
@@ -182,6 +199,43 @@ class UserServiceTest {
         assertThatThrownBy(() -> userService.withdraw(1L, request))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage(UserErrorCode.INVALID_PASSWORD.getMessage());
+    }
+
+    @Test
+    void 회원_조회_성공() {
+        User user = User.signUpIndividual("user1", "user1@example.com", "encodedPassword");
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+
+        UserResponse response = userService.getUser(1L);
+
+        assertThat(response.userId()).isEqualTo(1L);
+        assertThat(response.username()).isEqualTo("user1");
+        assertThat(response.status()).isEqualTo(UserStatus.ACTIVE);
+        assertThat(response.userType()).isEqualTo(Role.INDIVIDUAL);
+    }
+
+    @Test
+    void 존재하지_않는_유저_조회시_예외() {
+        given(userRepository.findById(1L)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.getUser(1L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(UserErrorCode.USER_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    void 탈퇴한_유저도_조회는_정상_응답() {
+        User user = User.signUpIndividual("user1", "user1@example.com", "encodedPassword");
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        ReflectionTestUtils.setField(user, "status", UserStatus.WITHDRAWN);
+
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+
+        UserResponse response = userService.getUser(1L);
+
+        assertThat(response.status()).isEqualTo(UserStatus.WITHDRAWN);
     }
 
 }
