@@ -14,6 +14,7 @@ import com.programmers.kdt.ticket.dto.ReservedTicketRequest;
 import com.programmers.kdt.ticket.entity.Ticket;
 import com.programmers.kdt.ticket.entity.TicketStatus;
 import com.programmers.kdt.ticket.event.StandbyCheckRequestEvent;
+import com.programmers.kdt.ticket.event.StandbyTicketReservedEvent;
 import com.programmers.kdt.ticket.exception.TicketErrorCode;
 import com.programmers.kdt.ticket.repository.TicketRepository;
 import lombok.RequiredArgsConstructor;
@@ -101,6 +102,10 @@ public class ChangeTicketStatusServiceImpl implements ChangeTicketStatusService 
         Ticket ticket = getTicket(request.ticketId());
         validatePossibleReservedHoldTicket(ticket, request.holdKey());
         ticket.reservedTicket(request.userId());
+        //대기표에서 매칭된 상태의 경우
+        if (ticket.getStandbyUserId() != null) {
+            eventPublisher.publishEvent(new StandbyTicketReservedEvent(ticket.getTicketId()));
+        }
     }
 
     private static void validateNotReservedTicket(Ticket ticket) {

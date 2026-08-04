@@ -36,4 +36,7 @@ public interface StandbyRepository extends JpaRepository<Standby, Long> {
                         @Param("status") StandbyStatus status,
                         @Param("reservedAt") LocalDateTime reservedAt);
 
+
+    List<Standby> findAllByStandbyStatusAndExpiredAtLessThanEqual(StandbyStatus standbyStatus, LocalDateTime expiredAt);
+    Optional<Standby> findByTicketIdAndStandbyStatus(Long ticketId, StandbyStatus status);
 }

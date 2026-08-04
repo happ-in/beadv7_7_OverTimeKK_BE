@@ -1,6 +1,5 @@
 package com.programmers.kdt.standby.service;
 
-import com.programmers.kdt.common.TimeLimits;
 import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.performance.entity.PerformanceSession;
 import com.programmers.kdt.performance.entity.PerformanceSessionId;
@@ -112,9 +111,8 @@ public class StandbyService {
                 .findMatchCandidate(session, zone, StandbyStatus.WAITING)
                 .map(matched -> {
                     matched.hold(zone, ticketId);
-                    LocalDateTime standbyExpiredAt = matched.getHeldAt().plusMinutes(TimeLimits.standbyHoldTicket30Min);
                     eventPublisher.publishEvent(
-                            new StandbyTicketEvent(ticketId, matched.getUserId(), standbyExpiredAt));
+                            new StandbyTicketEvent(ticketId, matched.getUserId(), matched.getExpiredAt()));
                     return matched;
                 });
     }
@@ -166,5 +164,28 @@ public class StandbyService {
         return standby;
     }
 
+    // 매칭(HELD)후 결제 제한시간(30분)이 지난 건 취소
+    public int expireHeldStandbys() {
+        List<Standby> expiredStandbys = standbyRepository
+                .findAllByStandbyStatusAndExpiredAtLessThanEqual(StandbyStatus.HELD, LocalDateTime.now());
+
+        for (Standby standby : expiredStandbys) {
+            String matchedZone = standby.getMatchedZone();
+            Long ticketId = standby.getTicketId();
+            PerformanceSession session = standby.getPerformanceSession();
+
+            standby.cancel();
+            matchNextCandidate(session, matchedZone, ticketId);
+        }
+        return expiredStandbys.size();
+    }
+
     //매칭결제준비
+    public void reservedStandby(Long ticketId) {
+        Optional<Standby> heldStandby = standbyRepository.findByTicketIdAndStandbyStatus(ticketId,StandbyStatus.HELD);
+        if(heldStandby.isPresent()) {
+            Standby standby = heldStandby.get();
+            standby.reserve();
+        }
+    }
 }
