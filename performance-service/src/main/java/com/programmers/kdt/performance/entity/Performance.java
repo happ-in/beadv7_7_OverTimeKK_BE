@@ -50,11 +50,14 @@ public class Performance extends BaseTimeEntity {
     @Column(name = "hall_id", nullable = false)
     private Long hallId;
 
+    @Column(name = "img_path")
+    private String imgPath;
+
     private PerformanceStatus performanceStatus = PerformanceStatus.UPCOMING;
 
     public static Performance createPerformance(String title, String description, Long runtime,
                                                 LocalDate startDate, LocalDate endDate, LocalDateTime ticketOpenAt,
-                                                Long sellerId, Long hallId) {
+                                                Long sellerId, Long hallId, String imgPath) {
         validatePerformance(startDate, endDate, ticketOpenAt);
         Performance performance = new Performance();
         performance.title = title;
@@ -66,6 +69,7 @@ public class Performance extends BaseTimeEntity {
         performance.sellerId = sellerId;
         performance.hallId = hallId;
         performance.performanceStatus = PerformanceStatus.UPCOMING;
+        performance.imgPath = imgPath;
         return performance;
     }
 

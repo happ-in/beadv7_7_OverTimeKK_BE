@@ -34,7 +34,9 @@ public class PerformanceService {
                 request.endDate(),
                 request.ticketOpenAt(),
                 sellerId,
-                request.hallId());
+                request.hallId(),
+                request.postUrl()
+        );
 
         Performance saved = performanceRepository.save(performance);
         return new PerformanceResponse(saved.getPerformanceId(), saved.getTitle());
