@@ -28,7 +28,9 @@ public record PerformanceV2Request(
         LocalDateTime ticketOpenAt,     // nullable
 
         @NotNull (message = "공연장을 입력해주세요.")
-        Long hallId
+        Long hallId,
+
+        String postUrl
 ) {
         public Performance toPerformance(Long userId) {
                 return Performance.createPerformance(
@@ -39,7 +41,8 @@ public record PerformanceV2Request(
                         endDate,
                         ticketOpenAt,
                         userId,
-                        hallId
+                        hallId,
+                        postUrl
                 );
         }
 }

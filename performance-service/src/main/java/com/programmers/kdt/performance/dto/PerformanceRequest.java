@@ -15,6 +15,7 @@ public record PerformanceRequest(
         @NotNull LocalDate endDate,
         @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
         LocalDateTime ticketOpenAt,     // nullable
-        @NotNull Long hallId
+        @NotNull Long hallId,
+        String postUrl
 ) {
 }

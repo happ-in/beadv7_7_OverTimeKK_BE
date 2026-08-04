@@ -81,7 +81,8 @@ public class FindPerformanceServiceImpl implements FindPerformanceService {
                     performance.getTitle(),
                     performance.getStartDate(),
                     performance.getEndDate(),
-                    hall.getHallName()
+                    hall.getHallName(),
+                    performance.getImgPath()
             );
             responses.add(response);
         }

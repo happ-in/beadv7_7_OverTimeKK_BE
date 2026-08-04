@@ -7,7 +7,8 @@ public record FindPerformanceResponse(
         String title,
         LocalDate startDate,
         LocalDate endDate,
-        String hallName
+        String hallName,
+        String postUrl
 ) {
 
 }
