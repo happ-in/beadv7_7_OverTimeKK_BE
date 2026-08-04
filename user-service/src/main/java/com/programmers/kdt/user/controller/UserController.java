@@ -5,6 +5,7 @@ import com.programmers.kdt.common.exception.CommonErrorCode;
 import com.programmers.kdt.common.response.ApiResponse;
 import com.programmers.kdt.user.dto.LoginRequest;
 import com.programmers.kdt.user.dto.LoginResponse;
+import com.programmers.kdt.user.dto.RefreshTokenRequest;
 import com.programmers.kdt.user.dto.SignUpBusinessRequest;
 import com.programmers.kdt.user.dto.SignUpIndividualRequest;
 import com.programmers.kdt.user.dto.UserResponse;
@@ -38,6 +39,20 @@ public class UserController {
     @PostMapping("/login")
     public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         return ApiResponse.success(userService.login(request));
+    }
+
+    @PostMapping("/token/refresh")
+    public ApiResponse<LoginResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        return ApiResponse.success(userService.refresh(request));
+    }
+
+    @PostMapping("/logout")
+    public ApiResponse<Void> logout(@RequestAttribute(value = JwtAuthFilter.USER_ID_ATTRIBUTE, required = false) Long userId) {
+        if (userId == null) {
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED);
+        }
+        userService.logout(userId);
+        return ApiResponse.success(null);
     }
 
     @DeleteMapping("/me")

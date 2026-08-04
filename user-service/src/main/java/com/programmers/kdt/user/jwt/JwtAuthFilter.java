@@ -26,6 +26,7 @@ import java.io.IOException;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     public static final String USER_ID_ATTRIBUTE = "userId";
+    public static final String USER_ROLE_ATTRIBUTE = "userRole";
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
 
@@ -40,7 +41,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         if (token != null) {
             try {
                 jwtProvider.validateToken(token);
+                if (jwtProvider.isRefreshToken(token)) {
+                    writeUnauthorized(response);
+                    return;
+                }
                 request.setAttribute(USER_ID_ATTRIBUTE, jwtProvider.getUserId(token));
+                request.setAttribute(USER_ROLE_ATTRIBUTE, jwtProvider.getRole(token));
             } catch (JwtException | IllegalArgumentException e) {
                 writeUnauthorized(response);
                 return;

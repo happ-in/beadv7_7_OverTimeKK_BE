@@ -9,6 +9,7 @@ public enum UserErrorCode implements ErrorCode {
     DUPLICATE_BUSINESS_NUMBER(HttpStatus.CONFLICT, "USR409_003", "이미 등록된 사업자번호입니다."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USR404_001", "존재하지 않는 아이디입니다."),
     INVALID_PASSWORD(HttpStatus.UNAUTHORIZED, "USR401_001", "비밀번호가 일치하지 않습니다."),
+    INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "USR401_002", "다시 로그인해주세요."),
     WITHDRAWN_USER(HttpStatus.FORBIDDEN, "USR403_001", "탈퇴한 계정입니다.");
 
     private final HttpStatus httpStatus;

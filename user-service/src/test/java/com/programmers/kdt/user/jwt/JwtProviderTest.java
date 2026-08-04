@@ -11,21 +11,23 @@ class JwtProviderTest {
 
     private static final String SECRET = "test-secret-key-for-jwt-provider-unit-test-32bytes+";
 
-    private final JwtProvider jwtProvider = new JwtProvider(SECRET, 3600_000L);
+    private final JwtProvider jwtProvider = new JwtProvider(SECRET, 3600_000L, 604_800_000L);
 
     @Test
     void 토큰_발급_후_검증하면_원래_담았던_정보가_그대로_나온다() {
-        String token = jwtProvider.createToken(1L, "user1");
+        String token = jwtProvider.createToken(1L, "user1", "INDIVIDUAL");
 
         jwtProvider.validateToken(token);
         assertThat(jwtProvider.getUserId(token)).isEqualTo(1L);
         assertThat(jwtProvider.getUsername(token)).isEqualTo("user1");
+        assertThat(jwtProvider.getRole(token)).isEqualTo("INDIVIDUAL");
+        assertThat(jwtProvider.isRefreshToken(token)).isFalse();
     }
 
     @Test
     void 만료된_토큰을_검증하면_예외가_발생한다() {
-        JwtProvider expiredTokenProvider = new JwtProvider(SECRET, -1000L);
-        String expiredToken = expiredTokenProvider.createToken(1L, "user1");
+        JwtProvider expiredTokenProvider = new JwtProvider(SECRET, -1000L, 604_800_000L);
+        String expiredToken = expiredTokenProvider.createToken(1L, "user1", "INDIVIDUAL");
 
         assertThatThrownBy(() -> jwtProvider.validateToken(expiredToken))
                 .isInstanceOf(ExpiredJwtException.class);
@@ -33,7 +35,7 @@ class JwtProviderTest {
 
     @Test
     void 위조된_토큰을_검증하면_예외가_발생한다() {
-        String token = jwtProvider.createToken(1L, "user1");
+        String token = jwtProvider.createToken(1L, "user1", "INDIVIDUAL");
         String tampered = token.substring(0, token.length() - 1) + (token.endsWith("a") ? "b" : "a");
 
         assertThatThrownBy(() -> jwtProvider.validateToken(tampered))
@@ -42,10 +44,27 @@ class JwtProviderTest {
 
     @Test
     void 다른_secret으로_서명된_토큰을_검증하면_예외가_발생한다() {
-        JwtProvider otherProvider = new JwtProvider("other-secret-key-completely-different-32bytes!!", 3600_000L);
-        String token = otherProvider.createToken(1L, "user1");
+        JwtProvider otherProvider = new JwtProvider("other-secret-key-completely-different-32bytes!!", 3600_000L, 604_800_000L);
+        String token = otherProvider.createToken(1L, "user1", "INDIVIDUAL");
 
         assertThatThrownBy(() -> jwtProvider.validateToken(token))
                 .isInstanceOf(JwtException.class);
+    }
+
+    @Test
+    void 사업자_회원의_토큰엔_BUSINESS_role이_담긴다() {
+        String token = jwtProvider.createToken(1L, "biz1", "BUSINESS");
+
+        assertThat(jwtProvider.getRole(token)).isEqualTo("BUSINESS");
+    }
+
+    @Test
+    void 리프레시_토큰은_타입과_토큰ID가_담기고_role은_없다() {
+        String refreshToken = jwtProvider.createRefreshToken(1L, "user1", "token-id-1");
+
+        assertThat(jwtProvider.isRefreshToken(refreshToken)).isTrue();
+        assertThat(jwtProvider.getTokenId(refreshToken)).isEqualTo("token-id-1");
+        assertThat(jwtProvider.getUserId(refreshToken)).isEqualTo(1L);
+        assertThat(jwtProvider.getRole(refreshToken)).isNull();
     }
 }
