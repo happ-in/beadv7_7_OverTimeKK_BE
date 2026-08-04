@@ -1,4 +1,4 @@
-package com.programmers.kdt.user.jwt;
+package com.programmers.kdt.common.jwt;
 
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;

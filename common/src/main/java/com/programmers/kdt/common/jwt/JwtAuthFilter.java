@@ -1,4 +1,4 @@
-package com.programmers.kdt.user.jwt;
+package com.programmers.kdt.common.jwt;
 
 import com.programmers.kdt.common.exception.CommonErrorCode;
 import com.programmers.kdt.common.response.ApiResponse;
@@ -16,10 +16,12 @@ import tools.jackson.databind.json.JsonMapper;
 import java.io.IOException;
 
 /**
- * Authorization 헤더의 JWT를 검증해 userId를 request attribute로 전달하는 필터.
+ * Authorization 헤더의 JWT를 검증해 userId/role을 request attribute로 전달하는 필터.
  * spring-boot-starter-security 미사용 결정에 따라 SecurityFilterChain 대신 서블릿 필터로 직접 구현.
  * 토큰이 없는 요청은 그대로 통과시키고(로그인/회원가입 등 공개 API), 토큰이 있는데 유효하지 않으면 즉시 401로 응답한다.
- * 이번 이슈 범위엔 로그인이 필수인 엔드포인트가 없어 실제로 이 필터를 거쳐 거부되는 API는 아직 없다(추후 보호 API 추가 시 활용).
+ * common으로 이동해 세 서비스가 전부 공유함 - 이 필터는 토큰이 있을 때 attribute만 채워줄 뿐,
+ * 인증을 강제하지는 않는다. 각 서비스 컨트롤러가 USER_ID_ATTRIBUTE/USER_ROLE_ATTRIBUTE를
+ * 직접 확인해서 거부하는 로직을 넣어야 실제로 보호된다.
  */
 @Component
 @RequiredArgsConstructor

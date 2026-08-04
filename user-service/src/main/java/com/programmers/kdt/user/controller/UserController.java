@@ -10,7 +10,7 @@ import com.programmers.kdt.user.dto.SignUpBusinessRequest;
 import com.programmers.kdt.user.dto.SignUpIndividualRequest;
 import com.programmers.kdt.user.dto.UserResponse;
 import com.programmers.kdt.user.dto.WithdrawRequest;
-import com.programmers.kdt.user.jwt.JwtAuthFilter;
+import com.programmers.kdt.common.jwt.JwtAuthFilter;
 import com.programmers.kdt.user.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
