@@ -13,9 +13,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public interface TicketRepository extends JpaRepository<Ticket, Long> {
-    List<Ticket> findByPerformanceIdAndSessionNumAndZone(
-            Long performanceId, Long sessionNum, String zone);
-
     List<Ticket> findByTicketStatusAndHoldExpiredAtBefore(TicketStatus ticketStatus, LocalDateTime dateTime);
 
     // 요청 zone 중 아직 잔여 좌석(AVAILABLE)이 남아있는 zone 목록.
@@ -46,7 +43,7 @@ select p.performanceId
      , Seat s
  where p.performanceId = psp.performance.performanceId
    and p.performanceId = ps.performance.performanceId
-   and p.hallId = s.hall.hallId
+   and p.hallId = s.hallId
    and psp.zone = s.zone
    and p.performanceId = :performanceId
 """)
@@ -68,7 +65,7 @@ select p.performanceId
      , PerformanceSeatPrice psp
      , Seat s
  where p.performanceId = psp.performance.performanceId
-   and p.hallId = s.hall.hallId
+   and p.hallId = s.hallId
    and psp.zone = s.zone
    and p.performanceId = :performanceId
     """)

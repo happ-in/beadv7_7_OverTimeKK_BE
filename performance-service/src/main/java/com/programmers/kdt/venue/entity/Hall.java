@@ -9,13 +9,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
 @Getter
@@ -37,7 +33,4 @@ public class Hall extends BaseTimeEntity {
 
     @Column(name = "seat_total_count", nullable = false)
     private Long seatTotalCount;
-
-    @OneToMany(mappedBy = "hall", fetch = FetchType.LAZY)
-    private List<Seat> seats = new ArrayList<>();
 }
