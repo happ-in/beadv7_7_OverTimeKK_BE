@@ -141,7 +141,7 @@ public class StandbyTest {
             // then
             assertThat(standby.getSlot()).isEqualTo(Slot.ZONE2);
             assertThat(standby.getStandbyStatus()).isEqualTo(StandbyStatus.HELD);
-            assertThat(standby.getHeldAt()).isNotNull();
+            assertThat(standby.getExpiredAt()).isNotNull();
         }
 
         @Test
@@ -320,7 +320,7 @@ public class StandbyTest {
             assertThat(standby.getZone3()).isEqualTo("C");
             assertThat(standby.getStandbyStatus()).isEqualTo(StandbyStatus.WAITING);
             assertThat(standby.getSlot()).isNull();
-            assertThat(standby.getHeldAt()).isNull();
+            assertThat(standby.getExpiredAt()).isNull();
             assertThat(standby.getTicketId()).isNull();
             assertThat(standby.getMatchedZone()).isNull();
         }
@@ -339,7 +339,7 @@ public class StandbyTest {
             assertThat(standby.getZone1()).isNull();
             assertThat(standby.getStandbyStatus()).isEqualTo(StandbyStatus.CANCELLED);
             assertThat(standby.getSlot()).isNull();
-            assertThat(standby.getHeldAt()).isNull();
+            assertThat(standby.getExpiredAt()).isNull();
         }
 
         @Test

@@ -8,11 +8,12 @@ import com.programmers.kdt.performance.repository.PerformanceSessionRepository;
 import com.programmers.kdt.standby.entity.Standby;
 import com.programmers.kdt.standby.entity.StandbyStatus;
 import com.programmers.kdt.standby.dto.StandbyRankResponse;
+import com.programmers.kdt.standby.event.StandbyCheckResponseEvent;
 import com.programmers.kdt.standby.event.StandbyTicketEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import com.programmers.kdt.standby.exception.StandbyErrorCode;
 import com.programmers.kdt.standby.repository.StandbyRepository;
-import com.programmers.kdt.ticket.entity.Ticket;
+import com.programmers.kdt.ticket.event.StandbyCheckRequestEvent;
 import com.programmers.kdt.ticket.repository.TicketRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -230,26 +231,22 @@ class StandbyServiceTest {
     }
 
     @Nested
-    @DisplayName("매칭(tryMatch) - ticket이 좌석을 대기표로 전환한 직후 호출")
-    class TryMatch {
+    @DisplayName("대기자 확인(StandbyCheck) - ticket이 좌석을 대기표로 전환한 직후 이벤트로 호출")
+    class StandbyCheckTest {
 
         private static final Long TICKET_ID = 500L;
 
         @Test
-        @DisplayName("해당 zone 대기자가 있으면 FIFO 선두 1명이 HELD로 바뀌고 ticket에 매칭 결과를 알린다.")
-        void matchesEarliestCandidate() {
+        @DisplayName("해당 zone 대기자가 있으면 FIFO 선두 1명이 HELD로 바뀌고, ticket에 매칭 결과를 알린 뒤 존재함을 응답한다.")
+        void matchesEarliestCandidateAndRespondsExists() {
             // given
-            Ticket ticket = mock(Ticket.class);
-            given(ticket.getPerformanceId()).willReturn(PERFORMANCE_ID);
-            given(ticket.getSessionNum()).willReturn(SESSION_NUM);
-            given(ticket.getZone()).willReturn("A");
-            given(ticketRepository.findById(TICKET_ID)).willReturn(Optional.of(ticket));
+            StandbyCheckRequestEvent event =
+                    new StandbyCheckRequestEvent(PERFORMANCE_ID, SESSION_NUM, "A", TICKET_ID);
 
             Standby earliest = mock(Standby.class);
-            LocalDateTime heldAt = LocalDateTime.now();
-            given(earliest.getStandbyId()).willReturn(100L);
+            LocalDateTime expiredAt = LocalDateTime.now().plusMinutes(30);
             given(earliest.getUserId()).willReturn(USER_ID);
-            given(earliest.getHeldAt()).willReturn(heldAt);
+            given(earliest.getExpiredAt()).willReturn(expiredAt);
 
             given(performanceSessionRepository.findById(sessionId()))
                     .willReturn(Optional.of(session));
@@ -257,24 +254,22 @@ class StandbyServiceTest {
                     .willReturn(Optional.of(earliest));
 
             // when
-            Optional<Long> matchedId = standbyService.tryMatch(TICKET_ID);
+            standbyService.StandbyCheck(event);
 
             // then
-            assertThat(matchedId).contains(100L);
             verify(earliest).hold("A", TICKET_ID);
             verify(eventPublisher)
-                    .publishEvent(new StandbyTicketEvent(TICKET_ID, USER_ID, heldAt.plusMinutes(30)));
+                    .publishEvent(new StandbyTicketEvent(TICKET_ID, USER_ID, expiredAt));
+            verify(eventPublisher)
+                    .publishEvent(new StandbyCheckResponseEvent(TICKET_ID, true));
         }
 
         @Test
-        @DisplayName("해당 zone 대기자가 없으면 매칭되지 않고, ticket에 알리지도 않는다.")
-        void returnsEmptyWhenNoCandidate() {
+        @DisplayName("해당 zone 대기자가 없으면 매칭도, ticket 알림도 없이 존재하지 않음만 응답한다.")
+        void respondsNotExistsWhenNoCandidate() {
             // given
-            Ticket ticket = mock(Ticket.class);
-            given(ticket.getPerformanceId()).willReturn(PERFORMANCE_ID);
-            given(ticket.getSessionNum()).willReturn(SESSION_NUM);
-            given(ticket.getZone()).willReturn("A");
-            given(ticketRepository.findById(TICKET_ID)).willReturn(Optional.of(ticket));
+            StandbyCheckRequestEvent event =
+                    new StandbyCheckRequestEvent(PERFORMANCE_ID, SESSION_NUM, "A", TICKET_ID);
 
             given(performanceSessionRepository.findById(sessionId()))
                     .willReturn(Optional.of(session));
@@ -282,11 +277,12 @@ class StandbyServiceTest {
                     .willReturn(Optional.empty());
 
             // when
-            Optional<Long> matchedId = standbyService.tryMatch(TICKET_ID);
+            standbyService.StandbyCheck(event);
 
             // then
-            assertThat(matchedId).isEmpty();
-            verify(eventPublisher, never()).publishEvent(any());
+            verify(eventPublisher, never()).publishEvent(any(StandbyTicketEvent.class));
+            verify(eventPublisher)
+                    .publishEvent(new StandbyCheckResponseEvent(TICKET_ID, false));
         }
     }
 
@@ -349,9 +345,9 @@ class StandbyServiceTest {
             given(cancelled.getPerformanceSession()).willReturn(session);
 
             Standby next = mock(Standby.class);
-            LocalDateTime heldAt = LocalDateTime.now();
+            LocalDateTime expiredAt = LocalDateTime.now().plusMinutes(30);
             given(next.getUserId()).willReturn(999L);
-            given(next.getHeldAt()).willReturn(heldAt);
+            given(next.getExpiredAt()).willReturn(expiredAt);
             given(standbyRepository.findMatchCandidate(session, "A", StandbyStatus.WAITING))
                     .willReturn(Optional.of(next));
 
@@ -361,7 +357,7 @@ class StandbyServiceTest {
             // then - 새로 매칭된 next는 같은 ticketId로 hold되고, 그 ticketId 그대로 이벤트가 발행된다.
             verify(next).hold("A", ticketId);
             verify(eventPublisher)
-                    .publishEvent(new StandbyTicketEvent(ticketId, 999L, heldAt.plusMinutes(30)));
+                    .publishEvent(new StandbyTicketEvent(ticketId, 999L, expiredAt));
         }
 
         @Test
@@ -454,9 +450,9 @@ class StandbyServiceTest {
             given(standby.getPerformanceSession()).willReturn(session);
 
             Standby next = mock(Standby.class);
-            LocalDateTime heldAt = LocalDateTime.now();
+            LocalDateTime expiredAt = LocalDateTime.now().plusMinutes(30);
             given(next.getUserId()).willReturn(999L);
-            given(next.getHeldAt()).willReturn(heldAt);
+            given(next.getExpiredAt()).willReturn(expiredAt);
             given(standbyRepository.findMatchCandidate(session, "B", StandbyStatus.WAITING))
                     .willReturn(Optional.of(next));
 
@@ -466,7 +462,7 @@ class StandbyServiceTest {
             // then
             verify(next).hold("B", ticketId);
             verify(eventPublisher)
-                    .publishEvent(new StandbyTicketEvent(ticketId, 999L, heldAt.plusMinutes(30)));
+                    .publishEvent(new StandbyTicketEvent(ticketId, 999L, expiredAt));
         }
 
         @Test

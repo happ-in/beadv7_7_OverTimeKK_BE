@@ -1,5 +1,6 @@
 package com.programmers.kdt.standby.entity;
 
+import com.programmers.kdt.common.TimeLimits;
 import com.programmers.kdt.common.entity.BaseTimeEntity;
 import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.performance.entity.PerformanceSession;
@@ -66,8 +67,8 @@ public class Standby extends BaseTimeEntity {
 
     // FIFO 기준이 되는 대기신청 시각
     private LocalDateTime reservedAt;
-    // 결제 매칭 시각
-    private LocalDateTime heldAt;
+    // 결제 제한 마감 시각(매칭 시각 + 30분)
+    private LocalDateTime expiredAt;
 
     private Long ticketId;
 
@@ -99,7 +100,7 @@ public class Standby extends BaseTimeEntity {
     public void hold(String zone, Long ticketId) {
         this.slot = resolveSlot(zone);
         this.standbyStatus = StandbyStatus.HELD;
-        this.heldAt = LocalDateTime.now();
+        this.expiredAt = LocalDateTime.now().plusMinutes(TimeLimits.standbyHoldTicket30Min);
         this.ticketId = ticketId;
     }
 
@@ -163,7 +164,7 @@ public class Standby extends BaseTimeEntity {
 
         if (wasMatchedZone) {
             this.slot = null;
-            this.heldAt = null;
+            this.expiredAt = null;
             this.ticketId = null;
         }
 
@@ -184,5 +185,9 @@ public class Standby extends BaseTimeEntity {
         } else {
             throw new BusinessException(StandbyErrorCode.ZONE_NOT_IN_STANDBY);
         }
+    }
+    
+    public void reserve() {
+        this.standbyStatus = StandbyStatus.RESERVED;
     }
 }
