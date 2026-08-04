@@ -2,8 +2,7 @@ package com.programmers.kdt.order.client;
 
 import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.common.response.ApiResponse;
-import com.programmers.kdt.order.dto.TicketHoldRequest;
-import com.programmers.kdt.order.dto.TicketHoldResult;
+import com.programmers.kdt.order.dto.ValidateTicketRequest;
 import com.programmers.kdt.order.dto.TicketReleaseRequest;
 import com.programmers.kdt.order.dto.TicketCancelRequest;
 import com.programmers.kdt.order.dto.TicketReserveRequest;
@@ -24,20 +23,15 @@ public class TicketApiClient implements TicketClient {
     private final RestClient restClient;
 
     @Override
-    public TicketHoldResult holdSeat(TicketHoldRequest ticketRequest){
+    public void validateTicket(ValidateTicketRequest ticketRequest){
         try{
-            ApiResponse<TicketHoldResult> response = restClient.put()
-                    .uri("/api/tickets/status/hold")
+            restClient.put()
+                    .uri("/api/tickets/validation")
                     .body(ticketRequest)
                     .retrieve()
-                    .body(new ParameterizedTypeReference<ApiResponse<TicketHoldResult>>() {});
-            if(response == null || response.data() == null){
-                throw new BusinessException(OrderErrorCode.TICKET_HOLD_RESPONSE_EMPTY);
-            }
-            return response.data();
-
+                    .toBodilessEntity();
         } catch (RestClientException e){
-            throw new BusinessException(OrderErrorCode.TICKET_HOLD_FAILED);
+            throw new BusinessException(OrderErrorCode.TICKET_VALIDATION_FAILED);
         }
     }
 

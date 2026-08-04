@@ -7,7 +7,7 @@ import java.util.List;
 
 public interface TicketClient {
 
-    TicketHoldResult holdSeat(TicketHoldRequest ticketRequest);
+    void validateTicket(ValidateTicketRequest ticketRequest);
     void reserveTicket(TicketReserveRequest ticketReserveRequest);
     void releaseSeat(TicketReleaseRequest request);
     void cancelTicket(TicketCancelRequest request);
