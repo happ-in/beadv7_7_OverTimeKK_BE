@@ -7,7 +7,9 @@ import java.util.List;
 
 public record EndedTicketsResponse(
         @JsonFormat(pattern = "yyyy-MM-dd")
-        LocalDate date,
+        LocalDate from,
+        @JsonFormat(pattern = "yyyy-MM-dd")
+        LocalDate to,
         List<EndedTicketResponse> endedTickets
 ) {
 }

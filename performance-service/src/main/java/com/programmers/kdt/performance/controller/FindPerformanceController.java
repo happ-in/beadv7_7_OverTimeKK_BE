@@ -1,6 +1,7 @@
 package com.programmers.kdt.performance.controller;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.programmers.kdt.common.exception.CommonErrorCode;
 import com.programmers.kdt.common.response.ApiResponse;
 import com.programmers.kdt.performance.dto.EndedTicketsResponse;
 import com.programmers.kdt.performance.dto.FindPerformanceResponse;
@@ -33,8 +34,12 @@ public class FindPerformanceController {
 
     @GetMapping("/ended")
     public ApiResponse<EndedTicketsResponse> findEndedPerformanceTickets(
-            @JsonFormat(pattern = "yyyy-MM-dd") @RequestParam("date") LocalDate endDate) {
-        EndedTicketsResponse performanceTickets = findPerformanceService.findEndedPerformanceTickets(endDate);
+            @JsonFormat(pattern = "yyyy-MM-dd") @RequestParam("from") LocalDate from,
+            @JsonFormat(pattern = "yyyy-MM-dd") @RequestParam("to") LocalDate to) {
+        if (from.isAfter(to)) {
+            ApiResponse.fail(CommonErrorCode.INVALID_DATE_RANGE.getCode(), CommonErrorCode.INVALID_DATE_RANGE.getMessage());
+        }
+        EndedTicketsResponse performanceTickets = findPerformanceService.findEndedPerformanceTickets(from, to);
         return ApiResponse.success(performanceTickets);
     }
 

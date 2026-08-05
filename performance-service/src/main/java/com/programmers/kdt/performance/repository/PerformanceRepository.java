@@ -31,10 +31,10 @@ public interface PerformanceRepository extends JpaRepository<Performance, Long> 
                     select new com.programmers.kdt.performance.dto.EndedTicketResponse(p.performanceId, t.ticketId)
                       from Performance p, Ticket t
                      where p.performanceId = t.performanceId
-                       and p.endDate = :endDate
+                       and p.endDate between :start and :end
                        and t.ticketStatus = TicketStatus.RESERVED
                     """)
-    List<EndedTicketResponse> findEndedTickets(@Param("endDate") LocalDate endDate);
+    List<EndedTicketResponse> findEndedTickets(@Param("start") LocalDate start, @Param("end") LocalDate end);
 
 
 }

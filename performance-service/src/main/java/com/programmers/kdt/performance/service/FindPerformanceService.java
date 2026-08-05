@@ -10,7 +10,7 @@ import java.util.List;
 public interface FindPerformanceService {
     List<FindPerformanceResponse> findPerformances(PerformanceStatus status, int page);
 
-    EndedTicketsResponse findEndedPerformanceTickets(LocalDate endDate);
+    EndedTicketsResponse findEndedPerformanceTickets(LocalDate from, LocalDate to);
 
     String getPerformanceTitle(Long performanceId);
 }
