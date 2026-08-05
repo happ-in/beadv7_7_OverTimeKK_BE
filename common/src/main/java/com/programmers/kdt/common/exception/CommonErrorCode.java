@@ -7,6 +7,7 @@ public enum CommonErrorCode implements ErrorCode {
     INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "COM400_002", "{0} 입력값이 올바르지 않습니다."),
     VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "COM400_003", "{0} 요청 데이터 검증에 실패했습니다."),
     PAGE_BAD_REQUEST(HttpStatus.BAD_REQUEST, "COM400_004", "유효하지 않은 페이지 값입니다."),
+    INVALID_DATE_RANGE(HttpStatus.BAD_REQUEST, "COM400_005", "조회 시작일은 종료일보다 이후일 수 없습니다."),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "COM401_001", "인증이 필요합니다."),
     INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "C401_002", "유효하지 않은 인증 정보입니다."),
     FORBIDDEN(HttpStatus.FORBIDDEN, "COM403_001", "접근 권한이 없습니다."),

@@ -15,12 +15,14 @@ import com.programmers.kdt.venue.entity.Hall;
 import com.programmers.kdt.venue.exception.VenueErrorCode;
 import com.programmers.kdt.venue.repository.HallRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -28,6 +30,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class FindPerformanceServiceImpl implements FindPerformanceService {
 
     private final PerformanceRepository performanceRepository;
@@ -50,9 +53,11 @@ public class FindPerformanceServiceImpl implements FindPerformanceService {
     }
 
     @Override
-    public EndedTicketsResponse findEndedPerformanceTickets(LocalDate endDate) {
-        List<EndedTicketResponse> endedTickets = performanceRepository.findEndedTickets(endDate);
-        return new EndedTicketsResponse(endDate, endedTickets);
+    @Transactional(readOnly = true)
+    public EndedTicketsResponse findEndedPerformanceTickets(LocalDate from, LocalDate to) {
+        log.info("요청기간 : {} ~ {}", from, to);
+        List<EndedTicketResponse> endedTickets = performanceRepository.findEndedTickets(from, to);
+        return new EndedTicketsResponse(from, to, endedTickets);
     }
 
     @Override
