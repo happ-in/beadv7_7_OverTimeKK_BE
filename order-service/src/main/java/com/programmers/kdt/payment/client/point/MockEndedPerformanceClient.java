@@ -10,7 +10,7 @@ import java.util.List;
 @Component
 public class MockEndedPerformanceClient implements EndedPerformanceClient {
     @Override
-    public List<EndedTicket> findEndedTickets(LocalDate date) {
+    public List<EndedTicket> findEndedTickets(LocalDate from, LocalDate to) {
         return List.of();
     }
 }

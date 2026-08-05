@@ -20,8 +20,8 @@ public class PointEarnAdminController {
 
     // 배치 실패/누락으로 특정 날짜 수동으로 재처리 (포인트 지급)
     @PostMapping("/replay")
-    public ApiResponse<Void> replay(@RequestParam LocalDate date) {
-        pointEarnScheduler.earnPointsForEndedPerformances(date);
+    public ApiResponse<Void> replay(@RequestParam LocalDate from, @RequestParam LocalDate to) {
+        pointEarnScheduler.earnPointsForEndedPerformances(from, to);
         return ApiResponse.success(null);
     }
 
