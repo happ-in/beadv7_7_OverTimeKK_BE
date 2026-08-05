@@ -4,7 +4,8 @@ import java.time.LocalDate;
 import java.util.List;
 
 public record EndedTicketsResponse(
-        LocalDate date,
+        LocalDate from,
+        LocalDate to,
         List<EndedTicket> endedTickets
 ) {
 }

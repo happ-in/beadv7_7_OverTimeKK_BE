@@ -22,6 +22,7 @@ public class PointEarnScheduler {
 
     private static final double EARN_RATE = 0.01; // 티켓 가격의 1% 포인트 지급
     private static final int MAX_RETRY_ATTEMPTS = 3;
+    private static final int LOOKBACK_DAYS = 3; // 배치 실패 대비 재조회 범위
 
     private final EndedPerformanceClient endedPerformanceClient;
     private final PointEarnTargetRepository pointEarnTargetRepository;
@@ -29,14 +30,19 @@ public class PointEarnScheduler {
 
     @Scheduled(cron = "0 01 0 * * *")
     public void earnPointsForEndedPerformances() {
-        earnPointsForEndedPerformances(LocalDate.now().minusDays(1));
+        LocalDate to = LocalDate.now().minusDays(1);
+        LocalDate from = to.minusDays(LOOKBACK_DAYS - 1);
+        earnPointsForEndedPerformances(from, to);
     }
 
-    public void earnPointsForEndedPerformances(LocalDate targetDate) {
+    public void earnPointsForEndedPerformances(LocalDate from, LocalDate to) {
+        if (from.isAfter(to)) { // 관리자 수동 지급시 잘못된 날짜 범위 입력 방지
+            throw new BusinessException(PointErrorCode.INVALID_DATE_RANGE, from, to);
+        }
         try {
-            List<EndedTicket> endedTickets = endedPerformanceClient.findEndedTickets(targetDate);
+            List<EndedTicket> endedTickets = endedPerformanceClient.findEndedTickets(from, to);
             if (endedTickets.isEmpty()) {
-                log.info("{} 종료된 공연의 정산 대상 티켓 없음", targetDate);
+                log.info("{}~{} 종료된 공연의 정산 대상 티켓 없음", from, to);
                 return;
             }
 
@@ -57,9 +63,9 @@ public class PointEarnScheduler {
                     log.error("포인트 적립 처리 중 예상치 못한 예외 - ticketId={}, userId={}", target.ticketId(), target.userId(), e);
                 }
             }
-            log.info("{} 공연 종료 포인트 적립 대상 {}건 중 {}건 처리 완료", targetDate, targets.size(), successCount);
+            log.info("{}~{} 공연 종료 포인트 적립 대상 {}건 중 {}건 처리 완료", from, to, targets.size(), successCount);
         } catch (Exception e) {
-            log.error("[POINT_EARN_BATCH_FAILED] {} 포인트 적립 배치 자체가 실패. 자동 재처리 되지 않으니 수동 확인 필요.", targetDate, e);
+            log.error("[POINT_EARN_BATCH_FAILED] {}~{} 포인트 적립 배치 자체가 실패. 자동 재처리 되지 않으니 수동 확인 필요.", from, to, e);
 
         }
     }

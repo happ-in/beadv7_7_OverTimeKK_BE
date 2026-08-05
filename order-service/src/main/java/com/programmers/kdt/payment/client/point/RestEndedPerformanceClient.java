@@ -34,10 +34,10 @@ public class RestEndedPerformanceClient implements EndedPerformanceClient {
     }
 
     @Override
-    public List<EndedTicket> findEndedTickets(LocalDate date) {
+    public List<EndedTicket> findEndedTickets(LocalDate from, LocalDate to) {
         try {
             ApiResponse<EndedTicketsResponse> response = restClient.get()
-                    .uri("/api/performances/ended?date={date}", date)
+                    .uri("/api/performances/ended?from={from}&to={to}", from, to)
                     .retrieve()
                     .body(new ParameterizedTypeReference<ApiResponse<EndedTicketsResponse>>() {
                     });
