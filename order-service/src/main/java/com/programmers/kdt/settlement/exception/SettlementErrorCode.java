@@ -12,6 +12,11 @@ public enum SettlementErrorCode implements ErrorCode {
     INVALID_SETTLEMENT_AMOUNT(HttpStatus.BAD_REQUEST, "SET400_005", "총 판매금액과 서비스 수수료는 0원 이상이어야 합니다."),
     SERVICE_FEE_EXCEEDS_GROSS_AMOUNT(HttpStatus.BAD_REQUEST, "SET400_006", "서비스 수수료는 총 판매금액보다 클 수 없습니다."),
     PAID_AT_REQUIRED(HttpStatus.BAD_REQUEST, "SET400_007", "지급 완료 시각은 필수입니다."),
+    SETTLEMENT_REQUIRED(HttpStatus.BAD_REQUEST, "SET400_008", "정산 정보는 필수입니다."),
+    PERFORMANCE_ID_REQUIRED(HttpStatus.BAD_REQUEST, "SET400_009", "공연 ID는 필수입니다."),
+    SESSION_NUM_REQUIRED(HttpStatus.BAD_REQUEST, "SET400_010", "공연 회차 번호는 필수입니다."),
+    INVALID_SETTLEMENT_DATE(HttpStatus.BAD_REQUEST, "SET400_011", "정산 예정일이 올바르지 않습니다."),
+    FEE_EXCEEDS_GROSS_AMOUNT(HttpStatus.BAD_REQUEST, "SET400_012", "수수료 합계는 총 판매금액을 초과할 수 없습니다."),
     INVALID_SETTLEMENT_STATUS(HttpStatus.CONFLICT, "SET409_001", "현재 정산 상태에서는 요청한 상태로 변경할 수 없습니다.");
 
     private final HttpStatus httpStatus;

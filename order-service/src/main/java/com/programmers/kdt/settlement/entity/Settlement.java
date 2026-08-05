@@ -32,28 +32,32 @@ public class Settlement extends BaseTimeEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long settlementId;
 
-    @Column(nullable = false)
+    @Column(name = "seller_id", nullable = false)
     private Long sellerId;
 
-    @Column(nullable = false)
+    @Column(name = "settlement_month", nullable = false)
     private LocalDate settlementMonth;
 
-    @Column(nullable = false)
+    @Column(name = "scheduled_settlement_date", nullable = false)
     private LocalDate scheduledSettlementDate;
 
-    @Column(nullable = false)
+    @Column(name = "gross_amount", nullable = false)
     private Long grossAmount;
 
-    @Column(nullable = false)
+    @Column(name = "pg_fee_amount", nullable = false)
+    private Long pgFeeAmount;
+
+    @Column(name = "service_fee_amount", nullable = false)
     private Long serviceFeeAmount;
 
-    @Column(nullable = false)
+    @Column(name = "settlement_amount", nullable = false)
     private Long settlementAmount;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "settlement_status", nullable = false)
     private SettlementStatus settlementStatus;
 
+    @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
     private Settlement(
@@ -61,18 +65,21 @@ public class Settlement extends BaseTimeEntity {
             LocalDate settlementMonth,
             LocalDate scheduledSettlementDate,
             Long grossAmount,
+            Long pgFeeAmount,
             Long serviceFeeAmount
     ) {
         validateRequiredFields(sellerId, settlementMonth, scheduledSettlementDate);
         validateSettlementMonth(settlementMonth);
-        validateAmount(grossAmount, serviceFeeAmount);
+        validateScheduledSettlementDate(settlementMonth, scheduledSettlementDate);
+        validateAmount(grossAmount,pgFeeAmount,serviceFeeAmount);
 
         this.sellerId = sellerId;
         this.settlementMonth = settlementMonth;
         this.scheduledSettlementDate = scheduledSettlementDate;
         this.grossAmount = grossAmount;
+        this.pgFeeAmount = pgFeeAmount;
         this.serviceFeeAmount = serviceFeeAmount;
-        this.settlementAmount = grossAmount - serviceFeeAmount;
+        this.settlementAmount = grossAmount - (pgFeeAmount + serviceFeeAmount);
         this.settlementStatus = SettlementStatus.PENDING;
     }
 
@@ -81,9 +88,10 @@ public class Settlement extends BaseTimeEntity {
             LocalDate settlementMonth,
             LocalDate scheduledSettlementDate,
             Long grossAmount,
+            Long pgFeeAmount,
             Long serviceFeeAmount
     ) {
-        return new Settlement(sellerId, settlementMonth, scheduledSettlementDate, grossAmount, serviceFeeAmount);
+        return new Settlement(sellerId, settlementMonth, scheduledSettlementDate, grossAmount, pgFeeAmount, serviceFeeAmount);
     }
 
     private void validateRequiredFields(
@@ -109,12 +117,18 @@ public class Settlement extends BaseTimeEntity {
             throw new BusinessException(SettlementErrorCode.INVALID_SETTLEMENT_MONTH);
         }
     }
+    private void validateScheduledSettlementDate(LocalDate settlementMonth, LocalDate scheduledSettlementDate) {
+        if (scheduledSettlementDate.isBefore(settlementMonth)) {
+            throw new BusinessException(SettlementErrorCode.INVALID_SETTLEMENT_DATE);
+        }
+    }
 
-    private void validateAmount(
-            Long grossAmount,
-            Long serviceFeeAmount
-    ) {
+    private void validateAmount(Long grossAmount, Long pgFeeAmount, Long serviceFeeAmount) {
         if (grossAmount == null || grossAmount < 0) {
+            throw new BusinessException(SettlementErrorCode.INVALID_SETTLEMENT_AMOUNT);
+        }
+
+        if (pgFeeAmount == null || pgFeeAmount < 0) {
             throw new BusinessException(SettlementErrorCode.INVALID_SETTLEMENT_AMOUNT);
         }
 
@@ -122,8 +136,8 @@ public class Settlement extends BaseTimeEntity {
             throw new BusinessException(SettlementErrorCode.INVALID_SETTLEMENT_AMOUNT);
         }
 
-        if (serviceFeeAmount > grossAmount) {
-            throw new BusinessException(SettlementErrorCode.SERVICE_FEE_EXCEEDS_GROSS_AMOUNT);
+        if (pgFeeAmount + serviceFeeAmount > grossAmount) {
+            throw new BusinessException(SettlementErrorCode.FEE_EXCEEDS_GROSS_AMOUNT);
         }
     }
 
