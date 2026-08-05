@@ -90,4 +90,33 @@ class PaymentKeyConverterTest {
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(PaymentErrorCode.DECRYPTION_FAILED);
     }
+
+    @Test
+    @DisplayName("암호화된 문자열의 첫 바이트는 버전이다.")
+    void encryptedString_startsWithVersionByte() {
+        String plaintText = "tviva20260722175632w3kG4";
+
+        String encrypted = converter.convertToDatabaseColumn(plaintText);
+        byte[] decoded = Base64.getDecoder().decode(encrypted);
+
+        assertThat(decoded[0]).isEqualTo((byte) 1);
+    }
+
+    @Test
+    @DisplayName("암호화된 문자열의 버전이 다르면 복호화 시 예외가 발생한다.")
+    void decryptWithWrongVersion_throwsDecryptionFailedException() throws Exception {
+        String encrypted = converter.convertToDatabaseColumn("tviva20260722175632w3kG4");
+
+        byte[] decoded = Base64.getDecoder().decode(encrypted);
+        decoded[0] = 3;
+        String tampered = Base64.getEncoder().encodeToString(decoded);
+
+        assertThatThrownBy(() -> converter.convertToEntityAttribute(tampered))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(PaymentErrorCode.DECRYPTION_FAILED);
+    }
+
+
+
 }
