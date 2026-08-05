@@ -25,6 +25,8 @@ public class PaymentKeyConverter implements AttributeConverter<String, String> {
     private static final String TRANSFORMATION = "AES/GCM/NoPadding";
     private static final int IV_LENGTH_BYTE = 12; // GCM 권장 IV 길이(96bit)
     private static final int TAG_LENGTH_BIT = 128; // 인증 태그 길이
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    private static final byte CURRENT_KEY_VERSION = 1;
 
     @Value("${encryption.payment-key-secret}")
     private String secret;
@@ -36,14 +38,15 @@ public class PaymentKeyConverter implements AttributeConverter<String, String> {
         }
         try {
             byte[] iv = new byte[IV_LENGTH_BYTE];
-            SecureRandom.getInstanceStrong().nextBytes(iv);
+            SECURE_RANDOM.nextBytes(iv);
 
             Cipher cipher = Cipher.getInstance(TRANSFORMATION);
             cipher.init(Cipher.ENCRYPT_MODE, getSecretKey(), new GCMParameterSpec(TAG_LENGTH_BIT, iv));
 
             byte[] cipherText = cipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
 
-            ByteBuffer buffer = ByteBuffer.allocate(iv.length + cipherText.length);
+            ByteBuffer buffer = ByteBuffer.allocate(1 + iv.length + cipherText.length);
+            buffer.put(CURRENT_KEY_VERSION);
             buffer.put(iv);
             buffer.put(cipherText);
 
@@ -64,6 +67,10 @@ public class PaymentKeyConverter implements AttributeConverter<String, String> {
             byte[] decoded = Base64.getDecoder().decode(dbData);
 
             ByteBuffer buffer = ByteBuffer.wrap(decoded);
+            byte version = buffer.get();
+            if (version != CURRENT_KEY_VERSION) { // 키가 여러 개 생기면 switch문으로 버전별 처리 가능
+                throw new BusinessException(PaymentErrorCode.DECRYPTION_FAILED);
+            }
             byte[] iv = new byte[IV_LENGTH_BYTE];
             buffer.get(iv);
             byte[] cipherText = new byte[buffer.remaining()];
@@ -78,7 +85,6 @@ public class PaymentKeyConverter implements AttributeConverter<String, String> {
             log.error("paymentKey 복호화 실패", e);
             throw new BusinessException(PaymentErrorCode.DECRYPTION_FAILED);
         }
-
     }
 
     private SecretKey getSecretKey() {
