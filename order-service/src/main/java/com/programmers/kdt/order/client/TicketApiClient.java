@@ -25,8 +25,8 @@ public class TicketApiClient implements TicketClient {
     @Override
     public void validateTicket(ValidateTicketRequest ticketRequest){
         try{
-            restClient.put()
-                    .uri("/api/tickets/validation")
+            restClient.post()
+                    .uri("/api/tickets/hold/validation")
                     .body(ticketRequest)
                     .retrieve()
                     .toBodilessEntity();
