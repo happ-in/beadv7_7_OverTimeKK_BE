@@ -68,12 +68,12 @@ public class StandbyService {
         List<StandbyRankResponse.ZoneRank> zoneRanks = new ArrayList<>();
         for(String zone : zones) {
             if (zone.equals(matchedZone)) {
-                zoneRanks.add(new StandbyRankResponse.ZoneRank(zone, 0, true));
+                zoneRanks.add(new StandbyRankResponse.ZoneRank(zone, 0, true, standby.getTicketId()));
                 continue;
             }
             long rankCount = standbyRepository.countRankCount(
                     standby.getPerformanceSession(), zone, StandbyStatus.WAITING, standby.getReservedAt());
-            zoneRanks.add(new StandbyRankResponse.ZoneRank(zone, rankCount+1, false)
+            zoneRanks.add(new StandbyRankResponse.ZoneRank(zone, rankCount+1, false, null)
             );
 
         }

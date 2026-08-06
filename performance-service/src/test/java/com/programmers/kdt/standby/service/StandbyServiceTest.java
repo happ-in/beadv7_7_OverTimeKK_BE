@@ -514,7 +514,7 @@ class StandbyServiceTest {
             // then
             assertThat(response.standbyId()).isEqualTo(STANDBY_ID);
             assertThat(response.zoneRanks())
-                    .containsExactly(new StandbyRankResponse.ZoneRank("A", 3L, false));
+                    .containsExactly(new StandbyRankResponse.ZoneRank("A", 3L, false, null));
         }
 
         @Test
@@ -542,8 +542,8 @@ class StandbyServiceTest {
             // then
             assertThat(response.zoneRanks())
                     .containsExactly(
-                            new StandbyRankResponse.ZoneRank("A", 1L, false),
-                            new StandbyRankResponse.ZoneRank("B", 5L, false)
+                            new StandbyRankResponse.ZoneRank("A", 1L, false, null),
+                            new StandbyRankResponse.ZoneRank("B", 5L, false, null)
                     );
         }
 
@@ -562,6 +562,7 @@ class StandbyServiceTest {
             given(standby.getZone3()).willReturn(null);
             given(standby.getReservedAt()).willReturn(reservedAt);
             given(standby.getPerformanceSession()).willReturn(session);
+            given(standby.getTicketId()).willReturn(999L);
             given(standbyRepository.countRankCount(session, "B", StandbyStatus.WAITING, reservedAt))
                     .willReturn(2L);
 
@@ -571,8 +572,8 @@ class StandbyServiceTest {
             // then
             assertThat(response.zoneRanks())
                     .containsExactly(
-                            new StandbyRankResponse.ZoneRank("A", 0L, true),
-                            new StandbyRankResponse.ZoneRank("B", 3L, false)
+                            new StandbyRankResponse.ZoneRank("A", 0L, true, 999L),
+                            new StandbyRankResponse.ZoneRank("B", 3L, false, null)
                     );
             verify(standbyRepository, never())
                     .countRankCount(eq(session), eq("A"), any(), any());
