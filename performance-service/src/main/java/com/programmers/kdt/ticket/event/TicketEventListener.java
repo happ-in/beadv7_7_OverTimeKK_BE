@@ -27,7 +27,7 @@ public class TicketEventListener {
     }
 
     @Async
-    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onCheckStandbyResultHandler(StandbyCheckResponseEvent event) {
         changeTicketStatusService.changeTicketStatusByStandby(event);

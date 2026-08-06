@@ -8,6 +8,8 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.ColumnDefault;
@@ -17,6 +19,15 @@ import java.time.LocalDateTime;
 @Entity
 @Getter
 @NoArgsConstructor
+@Table(
+        name = "ticket",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_performance_session_seat",
+                        columnNames = {"performance_id", "session_num", "zone", "seat_row", "seat_num"}
+                )
+        }
+)
 public class Ticket extends BaseTimeEntity {
 
     @Id
