@@ -13,7 +13,6 @@ import com.programmers.kdt.order.exception.OrderErrorCode;
 import com.programmers.kdt.order.repository.OrderRepository;
 import com.programmers.kdt.payment.dto.RefundPaymentRequest;
 import com.programmers.kdt.payment.service.PaymentService;
-import com.programmers.kdt.settlement.dto.OrderResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -186,15 +185,6 @@ public class OrderServiceImpl implements OrderService {
         eventPublisher.publishEvent(
                 new TicketCancelRequestEvent(order.getTicketId(), order.getUserId(), order.getOrderId())
         );
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<OrderResponse> getOrders(List<Long> ticketIds) {
-
-        return orderRepository.findAllByTicketIds(ticketIds).stream()
-                .map(OrderResponse::from)
-                .toList();
     }
 
 }
