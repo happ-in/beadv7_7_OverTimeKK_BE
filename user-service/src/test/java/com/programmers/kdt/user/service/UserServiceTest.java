@@ -8,6 +8,7 @@ import com.programmers.kdt.user.dto.SignUpBusinessRequest;
 import com.programmers.kdt.user.dto.SignUpIndividualRequest;
 import com.programmers.kdt.user.dto.UserResponse;
 import com.programmers.kdt.user.dto.WithdrawRequest;
+import com.programmers.kdt.user.email.EmailVerificationService;
 import com.programmers.kdt.user.entity.Role;
 import com.programmers.kdt.user.entity.User;
 import com.programmers.kdt.user.entity.UserStatus;
@@ -51,6 +52,9 @@ class UserServiceTest {
 
     @Mock
     private RefreshTokenStore refreshTokenStore;
+
+    @Mock
+    private EmailVerificationService emailVerificationService;
 
     @InjectMocks
     private UserService userService;
@@ -104,6 +108,18 @@ class UserServiceTest {
         assertThatThrownBy(() -> userService.signUpIndividual(request))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage(UserErrorCode.DUPLICATE_USERNAME.getMessage());
+    }
+
+    @Test
+    void 이메일_인증_미완료_상태로_개인_회원가입시_예외() {
+        SignUpIndividualRequest request = new SignUpIndividualRequest("user1", "user1@example.com", "password123");
+        willThrow(new BusinessException(UserErrorCode.EMAIL_NOT_VERIFIED))
+                .given(emailVerificationService).requireVerifiedEmail(request.email());
+
+        assertThatThrownBy(() -> userService.signUpIndividual(request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(UserErrorCode.EMAIL_NOT_VERIFIED.getMessage());
+        verify(userRepository, never()).save(any());
     }
 
     @Test

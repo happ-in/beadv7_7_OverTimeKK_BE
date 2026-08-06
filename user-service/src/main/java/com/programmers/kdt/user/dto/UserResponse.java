@@ -9,9 +9,10 @@ public record UserResponse(
         String email,
         String username,
         UserStatus status,
-        Role userType
+        Role userType,
+        boolean emailVerified
 ) {
     public static UserResponse from(User user) {
-        return new UserResponse(user.getUserId(), user.getEmail(), user.getUsername(), user.getStatus(), user.getUserType());
+        return new UserResponse(user.getUserId(), user.getEmail(), user.getUsername(), user.getStatus(), user.getUserType(), user.isEmailVerified());
     }
 }

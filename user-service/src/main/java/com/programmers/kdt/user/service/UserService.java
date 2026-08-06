@@ -8,6 +8,7 @@ import com.programmers.kdt.user.dto.SignUpBusinessRequest;
 import com.programmers.kdt.user.dto.SignUpIndividualRequest;
 import com.programmers.kdt.user.dto.UserResponse;
 import com.programmers.kdt.user.dto.WithdrawRequest;
+import com.programmers.kdt.user.email.EmailVerificationService;
 import com.programmers.kdt.user.entity.User;
 import com.programmers.kdt.user.exception.UserErrorCode;
 import com.programmers.kdt.common.jwt.JwtProvider;
@@ -37,9 +38,11 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
     private final RefreshTokenStore refreshTokenStore;
+    private final EmailVerificationService emailVerificationService;
 
     @Transactional
     public UserResponse signUpIndividual(SignUpIndividualRequest request) {
+        emailVerificationService.requireVerifiedEmail(request.email());
         validateDuplicate(request.username(), request.email());
 
         String encodedPassword = passwordEncoder.encode(request.password());
@@ -51,6 +54,7 @@ public class UserService {
 
     @Transactional
     public UserResponse signUpBusiness(SignUpBusinessRequest request) {
+        emailVerificationService.requireVerifiedEmail(request.email());
         validateDuplicate(request.username(), request.email());
         validateDuplicateBusinessNumber(request.businessNumber());
 
