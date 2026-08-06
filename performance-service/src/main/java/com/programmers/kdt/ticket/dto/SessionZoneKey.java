@@ -1,4 +1,4 @@
-package com.programmers.kdt.ticket.service;
+package com.programmers.kdt.ticket.dto;
 
 public record SessionZoneKey(Long performanceId, Long sessionNum, String zone) {
 }

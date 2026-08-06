@@ -6,6 +6,7 @@ import com.programmers.kdt.ticket.dto.CheckTicketHoldAvailableRequest;
 import com.programmers.kdt.ticket.dto.CheckTicketHoldAvailableResponse;
 import com.programmers.kdt.ticket.dto.ReleaseTicketHoldRequest;
 import com.programmers.kdt.ticket.dto.ReservedTicketRequest;
+import com.programmers.kdt.ticket.dto.SessionZoneKey;
 
 import java.util.List;
 import java.util.Map;

@@ -1,0 +1,10 @@
+### 값검
+POST http://localhost:8083/api/tickets/hold/validation
+Content-Type: application/json
+
+{
+  "ticketId": 34,
+  "userId": 1,
+  "price": 150000,
+  "holdKey": "overtimekk"
+}

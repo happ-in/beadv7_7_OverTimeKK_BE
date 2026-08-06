@@ -1,4 +1,4 @@
-package com.programmers.kdt.ticket.service;
+package com.programmers.kdt.ticket.service.impl;
 
 import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.performance.entity.PerformanceSeatPrice;
@@ -17,6 +17,7 @@ import com.programmers.kdt.ticket.dto.TicketZonesResponse;
 import com.programmers.kdt.ticket.entity.Ticket;
 import com.programmers.kdt.ticket.exception.TicketErrorCode;
 import com.programmers.kdt.ticket.repository.TicketRepository;
+import com.programmers.kdt.ticket.service.TicketService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
