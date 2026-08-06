@@ -15,9 +15,6 @@ public record CreateOrderRequest(
         @NotNull
         Long price,
 
-        @NotNull
-        LocalDateTime expiredAt,
-
         @NotBlank
         String holdKey
 
