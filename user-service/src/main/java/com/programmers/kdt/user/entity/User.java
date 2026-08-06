@@ -37,12 +37,15 @@ public class User extends BaseTimeEntity {
     @Enumerated(EnumType.STRING)
     private UserStatus status;
 
+    private boolean emailVerified;
+
     private User(String username, String email, String encodedPassword, Role userType) {
         this.username = username;
         this.email = email;
         this.password = encodedPassword;
         this.userType = userType;
         this.status = UserStatus.ACTIVE;
+        this.emailVerified = true;
     }
 
     private User(String username, String email, String encodedPassword, Role userType,

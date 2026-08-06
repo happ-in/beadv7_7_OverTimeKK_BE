@@ -3,6 +3,8 @@ package com.programmers.kdt.user.controller;
 import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.common.exception.CommonErrorCode;
 import com.programmers.kdt.common.response.ApiResponse;
+import com.programmers.kdt.user.dto.EmailVerificationConfirmRequest;
+import com.programmers.kdt.user.dto.EmailVerificationRequest;
 import com.programmers.kdt.user.dto.LoginRequest;
 import com.programmers.kdt.user.dto.LoginResponse;
 import com.programmers.kdt.user.dto.RefreshTokenRequest;
@@ -11,6 +13,7 @@ import com.programmers.kdt.user.dto.SignUpIndividualRequest;
 import com.programmers.kdt.user.dto.UserResponse;
 import com.programmers.kdt.user.dto.WithdrawRequest;
 import com.programmers.kdt.common.jwt.JwtAuthFilter;
+import com.programmers.kdt.user.email.EmailVerificationService;
 import com.programmers.kdt.user.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +26,19 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
 
     private final UserService userService;
+    private final EmailVerificationService emailVerificationService;
+
+    @PostMapping("/email/verification-codes")
+    public ApiResponse<Void> sendVerificationCode(@Valid @RequestBody EmailVerificationRequest request) {
+        emailVerificationService.sendVerificationCode(request.email());
+        return ApiResponse.success(null);
+    }
+
+    @PostMapping("/email/verification")
+    public ApiResponse<Void> confirmVerificationCode(@Valid @RequestBody EmailVerificationConfirmRequest request) {
+        emailVerificationService.confirmVerificationCode(request.email(), request.code());
+        return ApiResponse.success(null);
+    }
 
     @PostMapping("/signup/individual")
     @ResponseStatus(HttpStatus.CREATED)

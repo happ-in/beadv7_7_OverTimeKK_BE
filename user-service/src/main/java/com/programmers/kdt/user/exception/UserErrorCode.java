@@ -4,6 +4,8 @@ import com.programmers.kdt.common.exception.ErrorCode;
 import org.springframework.http.HttpStatus;
 
 public enum UserErrorCode implements ErrorCode {
+    EMAIL_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "USR400_001", "이메일 인증을 먼저 완료해주세요."),
+    INVALID_VERIFICATION_CODE(HttpStatus.BAD_REQUEST, "USR400_002", "인증 코드가 올바르지 않습니다."),
     DUPLICATE_USERNAME(HttpStatus.CONFLICT, "USR409_001", "이미 사용 중인 아이디입니다."),
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, "USR409_002", "이미 사용 중인 이메일입니다."),
     DUPLICATE_BUSINESS_NUMBER(HttpStatus.CONFLICT, "USR409_003", "이미 등록된 사업자번호입니다."),
