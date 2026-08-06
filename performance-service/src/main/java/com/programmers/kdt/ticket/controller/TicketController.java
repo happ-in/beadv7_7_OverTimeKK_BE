@@ -12,10 +12,13 @@ import com.programmers.kdt.ticket.dto.ReservedTicketRequest;
 import com.programmers.kdt.ticket.dto.SessionStartDateResponse;
 import com.programmers.kdt.ticket.dto.TicketZoneRequest;
 import com.programmers.kdt.ticket.dto.TicketZonesResponse;
+import com.programmers.kdt.ticket.dto.ValidateTicketHoldRequest;
 import com.programmers.kdt.ticket.service.ChangeTicketStatusService;
 import com.programmers.kdt.ticket.service.TicketService;
+import com.programmers.kdt.ticket.service.ValidateTicketHoldService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,6 +37,7 @@ public class TicketController {
 
     private final TicketService ticketService;
     private final ChangeTicketStatusService changeTicketStatusService;
+    private final ValidateTicketHoldService validateTicketHoldService;
 
     @PostMapping("/standby")
     public CreateStandbyResponse issueStandby(
@@ -79,5 +83,11 @@ public class TicketController {
     @PostMapping("/select/seat")
     public ApiResponse<TicketZonesResponse> selectZone(@Valid @RequestBody TicketZoneRequest request) {
         return ApiResponse.success(ticketService.getTicketZone(request));
+    }
+
+    @PostMapping("/hold/validation")
+    public ResponseEntity<Void> validateTicketHold(@Valid @RequestBody ValidateTicketHoldRequest request) {
+        validateTicketHoldService.validateTicketHold(request);
+        return ResponseEntity.noContent().build();
     }
 }

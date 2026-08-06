@@ -1,4 +1,4 @@
-package com.programmers.kdt.ticket.service;
+package com.programmers.kdt.ticket.service.impl;
 
 import com.programmers.kdt.common.TimeLimits;
 import com.programmers.kdt.common.constant.OrderTypeCode;
@@ -17,6 +17,8 @@ import com.programmers.kdt.ticket.event.StandbyCheckRequestEvent;
 import com.programmers.kdt.ticket.event.StandbyTicketReservedEvent;
 import com.programmers.kdt.ticket.exception.TicketErrorCode;
 import com.programmers.kdt.ticket.repository.TicketRepository;
+import com.programmers.kdt.ticket.service.ChangeTicketStatusService;
+import com.programmers.kdt.ticket.dto.SessionZoneKey;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;

@@ -1,7 +1,7 @@
 package com.programmers.kdt.ticket.scheduler;
 
 import com.programmers.kdt.ticket.service.ChangeTicketStatusService;
-import com.programmers.kdt.ticket.service.SessionZoneKey;
+import com.programmers.kdt.ticket.dto.SessionZoneKey;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
