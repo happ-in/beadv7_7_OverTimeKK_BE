@@ -3,10 +3,12 @@ package com.programmers.kdt.payment.client.pg.toss;
 import com.programmers.kdt.payment.client.pg.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.Base64;
@@ -19,9 +21,14 @@ public class TossPgclient implements PgClient {
     private final RestClient restClient;
 
     public TossPgclient(@Value("${toss.secret-key}") String secretKey) {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(Duration.ofSeconds(3));
+        requestFactory.setReadTimeout(Duration.ofSeconds(10));
+
         String encoded = Base64.getEncoder().encodeToString(((secretKey) + ":").getBytes());
         this.restClient = RestClient.builder()
                 .baseUrl("https://api.tosspayments.com")
+                .requestFactory(requestFactory)
                 .defaultHeader("Authorization", "Basic " + encoded)
                 .build();
     }

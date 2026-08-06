@@ -186,6 +186,8 @@ public class PaymentServiceImpl implements PaymentService{
     @Transactional(propagation = Propagation.REQUIRES_NEW) // 기존 트랜잭션을 보류시키고 새로운 트랜잭션을 생성
     public void onRefundRequested(RefundRequestEvent event) {
         Payment payment = getPayment(event.paymentId());
+        boolean refundCompleted = false;
+        String failReason = null;
 
         try {
             Long ticketId = orderClient.getTicketId(payment.getOrderId());
@@ -193,36 +195,46 @@ public class PaymentServiceImpl implements PaymentService{
             double refundRate = RefundPolicy.resolveRefundRate(performanceDate, LocalDate.now());
 
             if (refundRate == 0.0) {
-                payment.failRefund();
-                paymentRepository.save(payment);
-                log.warn("당일/이후 환불 요청으로 환불 불가 - paymentId={}", payment.getId());
-                return;
+                failReason = PaymentErrorCode.REFUND_PERIOD_EXPIRED.toString();
+            } else {
+                Long refundAmount = RefundPolicy.calculateRefundAmount(payment.getAmount(), refundRate);
+                PgCancelResult cancelResult = pgClient.cancel(
+                        new PgCancelCommand(payment.getPaymentKey(), refundAmount, event.reason()));
+
+                if (!cancelResult.success()) {
+                    failReason = PaymentErrorCode.PG_REQUEST_FAILED.toString();
+                } else {
+                    paymentRefundRepository.save(PaymentRefund.create(payment.getId(), refundAmount, event.reason()));
+                    payment.completeRefund(refundAmount);
+                    refundCompleted = true;
+
+                    Long usedPoint = getUsedPointForOrder(payment.getOrderId());
+                    if (usedPoint > 0) {
+                        rollbackRefundPointWithRetry(payment.getOrderId(), usedPoint, refundRate, payment.getId());
+                    }
+                }
             }
-
-            Long refundAmount = RefundPolicy.calculateRefundAmount(payment.getAmount(), refundRate);
-
-            PgCancelResult cancelResult = pgClient.cancel(
-                    new PgCancelCommand(payment.getPaymentKey(), refundAmount, event.reason()));
-
-            if (!cancelResult.success()) {
-                payment.failRefund();
-                paymentRepository.save(payment);
-                log.error("PG 취소 실패 - paymentId={}", payment.getId());
-                return;
-            }
-
-            paymentRefundRepository.save(PaymentRefund.create(payment.getId(), refundAmount, event.reason()));
-            payment.completeRefund(refundAmount);
-
-            Long usedPoint = getUsedPointForOrder(payment.getOrderId());
-            if (usedPoint > 0) {
-                rollbackRefundPointWithRetry(payment.getOrderId(), usedPoint, refundRate, payment.getId());
-            }
-
         } catch (Exception e) {
+            if (refundCompleted) {
+                // 환불은 이미 확정, 포인트 환급이 실패되더라도 환불은 완료로 처리
+                log.error("[REFUND_POST_PROCESS_FAILED] 환불은 완료됐으나 후처리 실패 - paymentId={}", payment.getId(), e);
+            } else {
+                failReason = PaymentErrorCode.REFUND_SERVICE_FAILED.toString();
+                log.error("환불 처리 중 예외 발생 - paymentID={}", payment.getId());
+            }
+        }
+
+        if (refundCompleted) {
+            refundEventPublisher.publishCompleted(
+                    new RefundCompletedEvent(payment.getOrderId(), payment.getId())
+            );
+        } else {
             payment.failRefund();
             paymentRepository.save(payment);
-            log.error("환불 처리 중 예외 발생 - paymentId={}", payment.getId(), e);
+            log.warn("환불 실패 - paymentId={}, reason={}", payment.getId(), failReason);
+            refundEventPublisher.publishFailed(
+                    new RefundFailedEvent(payment.getOrderId(), payment.getId(), failReason)
+            );
         }
     }
 
