@@ -85,7 +85,10 @@ class RestPerformanceClientTest {
         });
 
         assertThatThrownBy(() -> client.getPerformanceDate(1L))
-                .isInstanceOf(org.springframework.web.client.ResourceAccessException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(PaymentErrorCode.PERFORMANCE_SERVICE_REQUEST_FAILED);
+
     }
 
     private void respond(com.sun.net.httpserver.HttpExchange exchange, int status, String body) throws IOException {
