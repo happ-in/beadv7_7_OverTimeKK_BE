@@ -1,0 +1,147 @@
+# EC2 배포용 compose 파일. 로컬 개발용 compose.yaml과는 별개.
+# 실행: docker compose -f docker-compose.deploy.yml --env-file .env up -d
+
+services:
+  db:
+    image: mysql:8.4
+    container_name: reseat-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      TZ: Asia/Seoul
+    command:
+      - --default-time-zone=+09:00
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --init-connect=SET NAMES utf8mb4
+    volumes:
+      - ./init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
+      - reseat-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - reseat-net
+    ports:
+      - "127.0.0.1:3306:3306"
+    # GUI로DB 확인 가능
+
+  redis:
+    image: redis:8
+    container_name: reseat-redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - reseat-net
+    # user-service의 refresh token 저장용. 호스트로 노출 안 함 - 내부 네트워크로만 접근
+
+  user-service:
+    image: ghcr.io/${GHCR_OWNER}/user-service:${IMAGE_TAG:-latest}
+    container_name: user-service
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/reseat
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET}
+    restart: unless-stopped
+    networks:
+      - reseat-net
+    # 8081 호스트로 노출 안 함 - nginx가 내부 네트워크로만 프록시
+
+  order-service:
+    image: ghcr.io/${GHCR_OWNER}/order-service:${IMAGE_TAG:-latest}
+    container_name: order-service
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/reseat?useUnicode=true&characterEncoding=UTF-8&connectionCollation=utf8mb4_0900_ai_ci&serverTimezone=Asia/Seoul&useSSL=false
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      ORDER_SERVICE_URL: http://order-service:8082
+      PERFORMANCE_SERVICE_URL: http://performance-service:8083
+      ENCRYPTION_SECRET_KEY: ${ENCRYPTION_SECRET_KEY}
+      TOSS_SECRET_KEY: ${TOSS_SECRET_KEY}
+      TOSS_CLIENT_KEY: ${TOSS_CLIENT_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+    restart: unless-stopped
+    networks:
+      - reseat-net
+    # 8082 호스트로 노출 안 함 - nginx가 내부 네트워크로만 프록시
+
+  performance-service:
+    image: ghcr.io/${GHCR_OWNER}/performance-service:${IMAGE_TAG:-latest}
+    container_name: performance-service
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/reseat?useUnicode=true&characterEncoding=UTF-8&connectionCollation=utf8mb4_0900_ai_ci&serverTimezone=Asia/Seoul
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      ORDER_SERVICE_URL: http://order-service:8082
+      JWT_SECRET: ${JWT_SECRET}
+    restart: unless-stopped
+    networks:
+      - reseat-net
+
+  frontend:
+    image: ${FRONTEND_IMAGE:-ghcr.io/prgrms-be-adv-devcourse/beadv7_7_overtimekk_fe/frontend:latest}
+    container_name: frontend
+    restart: unless-stopped
+    networks:
+      - reseat-net
+    # 8082/8083처럼 호스트로 노출 안 함 - nginx가 내부 네트워크로만 프록시
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/snippets:/etc/nginx/snippets:ro
+      - ./certbot/www:/var/www/certbot:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+    depends_on:
+      - user-service
+      - order-service
+      - performance-service
+      - frontend
+    restart: unless-stopped
+    networks:
+      - reseat-net
+
+  certbot:
+    image: certbot/certbot
+    container_name: certbot
+    volumes:
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
+    entrypoint: >
+      /bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot; sleep 12h & wait $${!}; done;'
+    networks:
+      - reseat-net
+
+networks:
+  reseat-net:
+    driver: bridge
+
+volumes:
+  reseat-mysql-data:
