@@ -7,13 +7,21 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
 @Getter
 @NoArgsConstructor
-@Table(name = "seat")
+@Table(name = "seat",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_seat",
+                        columnNames = {"hall_id", "zone", "seat_row", "seat_num"}
+                )
+        }
+)
 public class Seat extends BaseTimeEntity {
 
     @Id
