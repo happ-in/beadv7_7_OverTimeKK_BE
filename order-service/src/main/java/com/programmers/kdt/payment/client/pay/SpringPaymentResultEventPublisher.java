@@ -6,12 +6,17 @@ import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
-public class SpringOrderCompletionEventPublisher implements OrderCompletionEventPublisher {
+public class SpringPaymentResultEventPublisher implements PaymentResultEventPublisher {
 
     private final ApplicationEventPublisher eventPublisher;
 
     @Override
-    public void publish(PaymentConfirmEvent event) {
+    public void publishConfirmed(PaymentConfirmEvent event) {
+        eventPublisher.publishEvent(event);
+    }
+
+    @Override
+    public void publishFailed(PaymentFailEvent event) {
         eventPublisher.publishEvent(event);
     }
 }

@@ -84,6 +84,15 @@ public class Payment extends BaseTimeEntity {
         this.paymentKey = paymentKey;
     }
 
+    public void retryReady(String pgOrderId) {
+        if (paymentStatus != PaymentStatus.FAILED) {
+            throw new BusinessException(PaymentErrorCode.INVALID_PAYMENT_STATUS, this.paymentStatus);
+        }
+        this.paymentStatus = PaymentStatus.READY;
+        this.pgOrderId = pgOrderId;
+        this.paymentKey = null;
+    }
+
     public void assignPgOrderId(String pgOrderId) {
         this.pgOrderId = pgOrderId;
     }
