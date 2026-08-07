@@ -3,7 +3,14 @@ package com.programmers.kdt.order.service;
 import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.order.client.TicketClient;
 import com.programmers.kdt.order.client.TicketInfo;
-import com.programmers.kdt.order.dto.*;
+import com.programmers.kdt.order.dto.CancelOrderRequest;
+import com.programmers.kdt.order.dto.CancelOrderResponse;
+import com.programmers.kdt.order.dto.CreateOrderRequest;
+import com.programmers.kdt.order.dto.CreateOrderResponse;
+import com.programmers.kdt.order.dto.GetOrderHistoryResponse;
+import com.programmers.kdt.order.dto.OrderTicketRequest;
+import com.programmers.kdt.order.dto.TicketReserveRequest;
+import com.programmers.kdt.order.dto.ValidateTicketRequest;
 import com.programmers.kdt.order.entity.Order;
 import com.programmers.kdt.order.entity.OrderItem;
 import com.programmers.kdt.order.entity.OrderStatus;
@@ -185,6 +192,13 @@ public class OrderServiceImpl implements OrderService {
         eventPublisher.publishEvent(
                 new TicketCancelRequestEvent(order.getTicketId(), order.getUserId(), order.getOrderId())
         );
+    }
+
+    @Override
+    @Transactional
+    public void handlePaymentFailed(Long orderId){
+        Order order = findOrder(orderId);
+        order.failPayment();
     }
 
 }
