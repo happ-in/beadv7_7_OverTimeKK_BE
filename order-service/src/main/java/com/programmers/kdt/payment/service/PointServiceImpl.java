@@ -1,17 +1,27 @@
 package com.programmers.kdt.payment.service;
 
 import com.programmers.kdt.common.exception.BusinessException;
+import com.programmers.kdt.payment.dto.GetPointBalanceResponse;
+import com.programmers.kdt.payment.dto.GetPointHistoryResponse;
 import com.programmers.kdt.payment.entity.Point;
 import com.programmers.kdt.payment.entity.PointLog;
+import com.programmers.kdt.payment.entity.PointType;
 import com.programmers.kdt.payment.exception.PointErrorCode;
 import com.programmers.kdt.payment.repository.PointLogRepository;
 import com.programmers.kdt.payment.repository.PointRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -98,4 +108,49 @@ public class PointServiceImpl implements PointService {
 
         pointLogRepository.save(PointLog.rollback(originLog, amount, rollbackEventId, isFullRollback));
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public GetPointBalanceResponse getBalance(Long userId) {
+        Long balance = pointRepository.findById(userId)
+                .map(Point::getTotalPoint)
+                .orElse(0L);
+        return GetPointBalanceResponse.of(userId, balance);
+
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<GetPointHistoryResponse> getPointLogHistory(Long userId, Pageable pageable) {
+        List<PointLog> logsAsc = pointLogRepository.findByUserIdOrderByCreatedAtAsc(userId);
+
+        List<GetPointHistoryResponse> responses = new ArrayList<>(logsAsc.size());
+        long runningBalance = 0L;
+
+        for (PointLog log : logsAsc) {
+            long signedAmount = isCredit(log.getPointType()) ? log.getAmount() : -log.getAmount();
+            runningBalance += signedAmount;
+            responses.add(GetPointHistoryResponse.of(
+                    log.getId(), log.getCreatedAt(), log.getPointType(), signedAmount, runningBalance
+            ));
+        }
+
+        Collections.reverse(responses); // 최신순으로 정렬
+
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), responses.size());
+
+        List<GetPointHistoryResponse> pageContent = start >= responses.size()
+                ? List.of()
+                : responses.subList(start, end);
+
+        return new PageImpl<>(pageContent, pageable, responses.size());
+    }
+
+    private boolean isCredit(PointType type) {
+        return type == PointType.EARN || type == PointType.CANCELLED || type == PointType.PARTIAL_CANCELLED;
+    }
+
 }
+
+

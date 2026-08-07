@@ -10,4 +10,8 @@ public interface PointLogRepository extends JpaRepository<PointLog, Long> {
     List<PointLog> findByUserId(Long userId);
 
     Optional<PointLog> findByEventId(String eventId);
+
+    List<PointLog> findByUserIdOrderByCreatedAtAsc(Long userId);
+
+
 }
