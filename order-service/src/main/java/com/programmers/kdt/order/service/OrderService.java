@@ -25,4 +25,7 @@ public interface OrderService {
     List<GetOrderHistoryResponse> getOrderHistory(Long userId);
 
     CancelOrderResponse cancelPendingOrder(Long orderId);
+
+    // 결제 실패 시 주문 상태 변경
+    void handlePaymentFailed(Long orderId);
 }

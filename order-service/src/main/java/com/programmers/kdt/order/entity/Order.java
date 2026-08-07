@@ -140,6 +140,17 @@ public class Order extends BaseTimeEntity {
         orderStatus = OrderStatus.PAYMENT_STARTED;
     }
 
+    // 결제 실패 후 재결제
+    public void failPayment(){
+        if(orderStatus == OrderStatus.PENDING){
+            return;
+        }
+        if(orderStatus != OrderStatus.PAYMENT_STARTED){
+            throw new BusinessException(OrderErrorCode.ORDER_NOT_PAYMENT_STARTED);
+        }
+        orderStatus = OrderStatus.PENDING;
+    }
+
     // 취소 가능한 주문인지 검증
     public void validateCancel(){
         if(orderStatus == OrderStatus.CANCELLED){
