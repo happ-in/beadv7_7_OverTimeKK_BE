@@ -1,5 +1,6 @@
 package com.programmers.kdt.performance.service;
 
+import com.programmers.kdt.image.service.S3ImageService;
 import com.programmers.kdt.performance.dto.PerformanceDetailResponse;
 import com.programmers.kdt.performance.dto.PerformanceRequest;
 import com.programmers.kdt.performance.dto.PerformanceResponse;
@@ -22,6 +23,7 @@ public class PerformanceService {
     private final PerformanceRepository performanceRepository;
     private final PerformanceSessionRepository performanceSessionRepository;
     private final PerformanceSeatPriceRepository performanceSeatPriceRepository;
+    private final S3ImageService imageService;
 
     @Transactional
     public PerformanceResponse registerPerformance(PerformanceRequest request, Long sellerId) {
@@ -69,13 +71,14 @@ public class PerformanceService {
 
     @Transactional(readOnly = true)
     public PerformanceDetailResponse getPerformanceDetail(Long performanceId) {
-        return PerformanceDetailResponse.from(getPerformance(performanceId));
+        Performance performance = getPerformance(performanceId);
+        return PerformanceDetailResponse.from(performance, imageService.getPresignedGetUrl(performance.getImgPath()));
     }
 
     @Transactional(readOnly = true)
     public List<PerformanceDetailResponse> getPerformances() {
         return performanceRepository.findAll().stream()
-                .map(PerformanceDetailResponse::from)
+                .map(performance -> PerformanceDetailResponse.from(performance, imageService.getPresignedGetUrl(performance.getImgPath())))
                 .toList();
     }
 

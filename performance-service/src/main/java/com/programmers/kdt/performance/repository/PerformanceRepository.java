@@ -1,6 +1,7 @@
 package com.programmers.kdt.performance.repository;
 
 import com.programmers.kdt.performance.dto.EndedTicketResponse;
+import com.programmers.kdt.performance.dto.PerformanceSessionSeatDto;
 import com.programmers.kdt.performance.entity.Performance;
 import com.programmers.kdt.performance.entity.PerformanceStatus;
 import org.springframework.data.domain.Page;
@@ -36,5 +37,21 @@ public interface PerformanceRepository extends JpaRepository<Performance, Long> 
                     """)
     List<EndedTicketResponse> findEndedTickets(@Param("start") LocalDate start, @Param("end") LocalDate end);
 
+    @Query("""
+                    select new com.programmers.kdt.performance.dto.PerformanceSessionSeatDto(
+                           ps.performanceSessionId.sessionNum, ps.performanceStartAt,
+                           ps.actor, psp.zone, psp.price, count(t.ticketId))
+                      from Performance p
+                      join PerformanceSession ps on ps.performanceSessionId.performanceId = p.performanceId
+                      join PerformanceSeatPrice psp on psp.performance.performanceId = p.performanceId
+                 left join Ticket t on t.performanceId = p.performanceId
+                                    and t.sessionNum = ps.performanceSessionId.sessionNum
+                                    and t.zone = psp.zone
+                                    and t.ticketStatus = com.programmers.kdt.ticket.entity.TicketStatus.AVAILABLE
+                     where p.performanceId = :performanceId
+                     group by ps.performanceSessionId.sessionNum, ps.performanceStartAt, ps.actor, psp.zone, psp.price
+                     order by ps.performanceSessionId.sessionNum
+                    """)
+    List<PerformanceSessionSeatDto> findSessionSeatAvailability(@Param("performanceId") Long performanceId);
 
 }

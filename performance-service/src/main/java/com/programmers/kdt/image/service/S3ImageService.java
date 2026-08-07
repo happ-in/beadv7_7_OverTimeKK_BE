@@ -4,8 +4,11 @@ import com.programmers.kdt.image.dto.ImgUploadUrlResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
@@ -18,6 +21,7 @@ import java.util.UUID;
 public class S3ImageService {
 
     private static final Duration UPLOAD_URL_EXPIRED = Duration.ofMinutes(5);
+    private static final Duration ALLOWED_GET_URL_EXPIRED = Duration.ofMinutes(30);
 
     private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
             "image/jpeg",
@@ -84,4 +88,27 @@ public class S3ImageService {
                 .substring(dotIndex)
                 .toLowerCase();
     }
+
+    public String getPresignedGetUrl(String objectKey) {
+
+        if (objectKey == null || objectKey.isEmpty()) {
+            return "";
+        }
+
+        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(bucket)
+                .key(objectKey)
+                .build();
+
+        GetObjectPresignRequest presignRequest =
+                GetObjectPresignRequest.builder()
+                        .signatureDuration(ALLOWED_GET_URL_EXPIRED)
+                        .getObjectRequest(getObjectRequest)
+                        .build();
+
+        PresignedGetObjectRequest presignedRequest = s3Presigner.presignGetObject(presignRequest);
+
+        return presignedRequest.url().toString();
+    }
+
 }

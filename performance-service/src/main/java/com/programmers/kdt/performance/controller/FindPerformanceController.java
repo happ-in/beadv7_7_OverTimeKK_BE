@@ -4,7 +4,8 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.programmers.kdt.common.exception.CommonErrorCode;
 import com.programmers.kdt.common.response.ApiResponse;
 import com.programmers.kdt.performance.dto.EndedTicketsResponse;
-import com.programmers.kdt.performance.dto.FindPerformanceResponse;
+import com.programmers.kdt.performance.dto.FindPerformancesResponse;
+import com.programmers.kdt.performance.dto.PerformanceSessionSeatResponse;
 import com.programmers.kdt.performance.entity.PerformanceStatus;
 import com.programmers.kdt.performance.service.FindPerformanceService;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +16,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/performances")
@@ -25,10 +25,10 @@ public class FindPerformanceController {
     private final FindPerformanceService findPerformanceService;
 
     @GetMapping
-    public ApiResponse<List<FindPerformanceResponse>> findPerformances(
+    public ApiResponse<FindPerformancesResponse> findPerformances(
             @RequestParam(name = "status", required = false) PerformanceStatus status,
             @RequestParam(name = "page", defaultValue = "1") int page) {
-        List<FindPerformanceResponse> performances = findPerformanceService.findPerformances(status, page);
+        FindPerformancesResponse performances = findPerformanceService.findPerformances(status, page);
         return ApiResponse.success(performances);
     }
 
@@ -47,5 +47,11 @@ public class FindPerformanceController {
     public ApiResponse<String> findPerformanceTitle(@PathVariable Long performanceId) {
         String title = findPerformanceService.getPerformanceTitle(performanceId);
         return ApiResponse.success(title);
+    }
+
+    @GetMapping("/{performanceId}/sessions/seats")
+    public ApiResponse<PerformanceSessionSeatResponse> findPerformanceSessionSeats(@PathVariable Long performanceId) {
+        PerformanceSessionSeatResponse response = findPerformanceService.findPerformanceSessionSeats(performanceId);
+        return ApiResponse.success(response);
     }
 }
