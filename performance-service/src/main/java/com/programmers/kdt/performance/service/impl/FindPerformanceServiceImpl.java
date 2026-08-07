@@ -3,9 +3,13 @@ package com.programmers.kdt.performance.service.impl;
 import com.programmers.kdt.common.PageConstants;
 import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.common.exception.CommonErrorCode;
+import com.programmers.kdt.image.service.S3ImageService;
 import com.programmers.kdt.performance.dto.EndedTicketResponse;
 import com.programmers.kdt.performance.dto.EndedTicketsResponse;
-import com.programmers.kdt.performance.dto.FindPerformanceResponse;
+import com.programmers.kdt.performance.dto.FindPerformanceDto;
+import com.programmers.kdt.performance.dto.FindPerformancesResponse;
+import com.programmers.kdt.performance.dto.PerformanceSessionSeatDto;
+import com.programmers.kdt.performance.dto.PerformanceSessionSeatResponse;
 import com.programmers.kdt.performance.entity.Performance;
 import com.programmers.kdt.performance.entity.PerformanceStatus;
 import com.programmers.kdt.performance.exception.PerformanceErrorCode;
@@ -35,13 +39,14 @@ public class FindPerformanceServiceImpl implements FindPerformanceService {
 
     private final PerformanceRepository performanceRepository;
     private final HallRepository hallRepository;
+    private final S3ImageService imageService;
 
     @Override
-    public List<FindPerformanceResponse> findPerformances(PerformanceStatus status, int page) {
+    public FindPerformancesResponse findPerformances(PerformanceStatus status, int page) {
         if (page <= 0) {
             throw new BusinessException(CommonErrorCode.PAGE_BAD_REQUEST);
         }
-        
+
         Pageable pageable = PageRequest.of(page-1, PageConstants.DEFAULT_PAGE_SIZE, Sort.by("startDate", "performanceId").ascending());
         Page<Performance> performances = findPerformances(status, pageable);
 
@@ -49,7 +54,8 @@ public class FindPerformanceServiceImpl implements FindPerformanceService {
             throw new BusinessException(PerformanceErrorCode.FIND_PERFORMANCES_NO_RESULT);
         }
 
-        return convertToResponse(performances);
+        long pageCount = (long) Math.ceil((double) performances.getTotalElements() / PageConstants.DEFAULT_PAGE_SIZE);
+        return new FindPerformancesResponse(pageCount, convertToResponse(performances));
     }
 
     @Override
@@ -68,6 +74,15 @@ public class FindPerformanceServiceImpl implements FindPerformanceService {
         return performance.getTitle();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public PerformanceSessionSeatResponse findPerformanceSessionSeats(Long performanceId) {
+        Performance performance = performanceRepository.findById(performanceId)
+                .orElseThrow(() -> new BusinessException(PerformanceErrorCode.PERFORMANCE_NOT_FOUND));
+        List<PerformanceSessionSeatDto> sessions = performanceRepository.findSessionSeatAvailability(performanceId);
+        return new PerformanceSessionSeatResponse(performance.getPerformanceId(), performance.getTicketOpenAt(), sessions);
+    }
+
     private Page<Performance> findPerformances(PerformanceStatus status, Pageable pageable) {
         if (status == null ) {
             return performanceRepository.findAll(pageable);
@@ -75,19 +90,19 @@ public class FindPerformanceServiceImpl implements FindPerformanceService {
         return performanceRepository.findByPerformanceStatus(status, pageable);
     }
 
-    private @NonNull List<FindPerformanceResponse> convertToResponse(Page<Performance> performances) {
-        List<FindPerformanceResponse> responses = new ArrayList<>();
+    private @NonNull List<FindPerformanceDto> convertToResponse(Page<Performance> performances) {
+        List<FindPerformanceDto> responses = new ArrayList<>();
         for (Performance performance : performances) {
             Hall hall = hallRepository.findById(performance.getHallId())
                     .orElseThrow(() -> new BusinessException(VenueErrorCode.HALL_INFORMATION_NOT_FOUND));
 
-            FindPerformanceResponse response = new FindPerformanceResponse(
+            FindPerformanceDto response = new FindPerformanceDto(
                     performance.getPerformanceId(),
                     performance.getTitle(),
                     performance.getStartDate(),
                     performance.getEndDate(),
                     hall.getHallName(),
-                    performance.getImgPath()
+                    imageService.getPresignedGetUrl(performance.getImgPath())
             );
             responses.add(response);
         }

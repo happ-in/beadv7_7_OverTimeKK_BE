@@ -1,2 +1,12 @@
 ### GET request to example server
 GET http://localhost:8083/api/performances/ended?from=2026-08-20&to=2026-08-22
+Content-Type: application/json
+
+### 공연전체 호출
+GET http://localhost:8083/api/performances?page=1
+
+### 공연전체 호출
+GET http://localhost:8083/api/performances/detail/1
+
+### 공연 회차/구역별 잔여 좌석 조회
+GET http://localhost:8083/api/performances/1/sessions/seats

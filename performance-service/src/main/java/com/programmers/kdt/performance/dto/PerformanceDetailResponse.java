@@ -15,9 +15,10 @@ public record PerformanceDetailResponse(
         LocalDate endDate,
         @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
         LocalDateTime ticketOpenAt,
-        Long hallId
+        Long hallId,
+        String postUrl
 ) {
-    public static PerformanceDetailResponse from(Performance performance) {
+    public static PerformanceDetailResponse from(Performance performance, String postUrl) {
         return new PerformanceDetailResponse(
                 performance.getPerformanceId(),
                 performance.getTitle(),
@@ -26,6 +27,8 @@ public record PerformanceDetailResponse(
                 performance.getStartDate(),
                 performance.getEndDate(),
                 performance.getTicketOpenAt(),
-                performance.getHallId());
+                performance.getHallId(),
+                postUrl)
+                ;
     }
 }
