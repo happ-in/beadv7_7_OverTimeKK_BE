@@ -101,10 +101,14 @@ public class Order extends BaseTimeEntity {
 
     }
 
+    public boolean isCompleted(){
+        return orderStatus==OrderStatus.COMPLETED;
+    }
+
     // 주문 완료 PAYMENT_STARTED -> COMPLETED
     public void complete(){
         if(orderStatus == OrderStatus.COMPLETED){
-            return; // 이미 주문 완료된 상태, 중복 무시
+            return;
         }
         if(orderStatus != OrderStatus.PAYMENT_STARTED){
             throw new BusinessException(OrderErrorCode.ORDER_NOT_PAYMENT_STARTED);

@@ -77,6 +77,11 @@ public class OrderServiceImpl implements OrderService {
     public void completeOrder(Long orderId){
         Order order = findOrder(orderId);
 
+        // 이미 완료된 주문이면 중복 처리 X
+        if(order.isCompleted()){
+            return;
+        }
+
         ticketClient.reserveTicket(new TicketReserveRequest(
                 order.getTicketId(),
                 order.getItems().getFirst().getHoldKey(),
