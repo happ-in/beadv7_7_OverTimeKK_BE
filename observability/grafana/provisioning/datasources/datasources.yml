@@ -30,4 +30,4 @@ datasources:
         datasourceUid: loki-uid
         filterByTraceID: true
       serviceMap:
-        datasourceUid: prometheus-uidㅇ
+        datasourceUid: prometheus-uid
