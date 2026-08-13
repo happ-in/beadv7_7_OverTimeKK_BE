@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "mcp__obsidian__list_directory",
-      "mcp__obsidian__read_note"
-    ]
-  }
-}
