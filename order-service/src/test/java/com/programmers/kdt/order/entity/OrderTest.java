@@ -218,6 +218,36 @@ public class OrderTest {
     class CancelOrder {
 
         @Test
+        @DisplayName("PENDING 상태에서 결제 전 취소하면 CANCELLED 상태로 전이된다.")
+        void cancelPendingOrder() {
+            // given
+            Order order = Order.create(1L, createItems(), expiresAt);
+
+            // when
+            order.cancelPending();
+
+            // then
+            assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CANCELLED);
+            assertThat(order.getCancelledAt()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("PENDING이 아닌 상태에서 결제 전 취소하면 예외가 발생한다.")
+        void failToCancelPendingOrderWhenNotPending() {
+            // given
+            Order order = Order.create(1L, createItems(), expiresAt);
+            order.expire();
+
+            // when & then
+            assertThatThrownBy(order::cancelPending)
+                    .isInstanceOfSatisfying(
+                            BusinessException.class,
+                            exception -> assertThat(exception.getErrorCode())
+                                    .isEqualTo(OrderErrorCode.ORDER_NOT_PENDING)
+                    );
+        }
+
+        @Test
         @DisplayName("COMPLETED 상태에서 취소하면 CANCELLED 상태로 전이된다.")
         void cancelOrder() {
             // given
@@ -279,6 +309,118 @@ public class OrderTest {
                             BusinessException.class,
                             exception -> assertThat(exception.getErrorCode())
                                     .isEqualTo(OrderErrorCode.ORDER_NOT_COMPLETED)
+                    );
+        }
+    }
+
+    @Nested
+    @DisplayName("결제 시작")
+    class StartPayment {
+
+        @Test
+        @DisplayName("만료 전 PENDING 주문은 PAYMENT_STARTED 상태로 전이된다.")
+        void startPayment() {
+            // given
+            Order order = Order.create(1L, createItems(), expiresAt);
+
+            // when
+            order.startPayment(expiresAt.minusSeconds(1));
+
+            // then
+            assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAYMENT_STARTED);
+        }
+
+        @Test
+        @DisplayName("만료 시각과 현재 시각이 같으면 예외가 발생한다.")
+        void failToStartPaymentAtExpiration() {
+            // given
+            Order order = Order.create(1L, createItems(), expiresAt);
+
+            // when & then
+            assertThatThrownBy(() -> order.startPayment(expiresAt))
+                    .isInstanceOfSatisfying(
+                            BusinessException.class,
+                            exception -> assertThat(exception.getErrorCode())
+                                    .isEqualTo(OrderErrorCode.ORDER_ALREADY_EXPIRED)
+                    );
+        }
+
+        @Test
+        @DisplayName("만료 시각이 지난 주문이면 예외가 발생한다.")
+        void failToStartPaymentAfterExpiration() {
+            // given
+            Order order = Order.create(1L, createItems(), expiresAt);
+
+            // when & then
+            assertThatThrownBy(() -> order.startPayment(expiresAt.plusSeconds(1)))
+                    .isInstanceOfSatisfying(
+                            BusinessException.class,
+                            exception -> assertThat(exception.getErrorCode())
+                                    .isEqualTo(OrderErrorCode.ORDER_ALREADY_EXPIRED)
+                    );
+        }
+
+        @Test
+        @DisplayName("PENDING이 아닌 주문에서 결제를 시작하면 예외가 발생한다.")
+        void failToStartPaymentWhenNotPending() {
+            // given
+            Order order = Order.create(1L, createItems(), expiresAt);
+            order.expire();
+
+            // when & then
+            assertThatThrownBy(() -> order.startPayment(expiresAt.minusSeconds(1)))
+                    .isInstanceOfSatisfying(
+                            BusinessException.class,
+                            exception -> assertThat(exception.getErrorCode())
+                                    .isEqualTo(OrderErrorCode.ORDER_NOT_PENDING)
+                    );
+        }
+    }
+
+    @Nested
+    @DisplayName("결제 실패")
+    class FailPayment {
+
+        @Test
+        @DisplayName("PAYMENT_STARTED 주문은 결제 실패 후 PENDING 상태로 돌아간다.")
+        void failPayment() {
+            // given
+            Order order = Order.create(1L, createItems(), expiresAt);
+            order.startPayment(expiresAt.minusSeconds(1));
+
+            // when
+            order.failPayment();
+
+            // then
+            assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PENDING);
+        }
+
+        @Test
+        @DisplayName("이미 PENDING 상태면 결제 실패 처리를 무시한다.")
+        void ignoreWhenAlreadyPending() {
+            // given
+            Order order = Order.create(1L, createItems(), expiresAt);
+
+            // when
+            order.failPayment();
+
+            // then
+            assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PENDING);
+        }
+
+        @Test
+        @DisplayName("PAYMENT_STARTED와 PENDING이 아닌 상태면 예외가 발생한다.")
+        void failToHandlePaymentFailureInInvalidStatus() {
+            // given
+            Order order = Order.create(1L, createItems(), expiresAt);
+            order.expire();
+
+            // when & then
+            assertThatThrownBy(order::failPayment)
+                    .isInstanceOfSatisfying(
+                            BusinessException.class,
+                            exception -> assertThat(exception.getErrorCode())
+                                    .isEqualTo(OrderErrorCode.ORDER_NOT_PAYMENT_STARTED)
                     );
         }
     }

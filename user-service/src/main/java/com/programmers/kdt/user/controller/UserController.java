@@ -12,6 +12,9 @@ import com.programmers.kdt.user.dto.SignUpBusinessRequest;
 import com.programmers.kdt.user.dto.SignUpIndividualRequest;
 import com.programmers.kdt.user.dto.UserResponse;
 import com.programmers.kdt.user.dto.WithdrawRequest;
+
+import com.programmers.kdt.user.dto.EmailNotificationRequest;
+
 import com.programmers.kdt.common.jwt.JwtAuthFilter;
 import com.programmers.kdt.user.email.EmailVerificationService;
 import com.programmers.kdt.user.service.UserService;
@@ -100,5 +103,14 @@ public class UserController {
     @GetMapping("/{userId}")
     public ApiResponse<UserResponse> getUser(@PathVariable Long userId) {
         return ApiResponse.success(userService.getUser(userId));
+    }
+
+    @PostMapping("/{userId}/notifications/email")
+    public ApiResponse<Void> sendNotificationEmail(
+            @PathVariable Long userId,
+            @Valid @RequestBody EmailNotificationRequest request) {
+
+        userService.sendNotificationEmail(userId, request);
+        return ApiResponse.success(null);
     }
 }

@@ -6,6 +6,7 @@ import com.programmers.kdt.common.exception.CommonErrorCode;
 import com.programmers.kdt.order.entity.Order;
 import com.programmers.kdt.order.repository.OrderRepository;
 import com.programmers.kdt.payment.client.pay.PaymentConfirmEvent;
+import com.programmers.kdt.payment.client.pay.PaymentFailEvent;
 import com.programmers.kdt.payment.client.pay.PaymentResultEventPublisher;
 import com.programmers.kdt.payment.client.pg.*;
 import com.programmers.kdt.payment.client.refund.*;
@@ -86,20 +87,58 @@ class PaymentServiceImplTest {
 
             PgReadyResult readyResult = mock(PgReadyResult.class);
             when(readyResult.transactionKey()).thenReturn("PG_KEY_123");
+            when(readyResult.orderId()).thenReturn("PG_ORDER_1");
+            when(readyResult.redirectionUrl()).thenReturn("https://pg.example/redirect");
 
             when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
-            when(paymentRepository.existsByOrderId(1L)).thenReturn(false);
+            when(paymentRepository.findByOrderId(1L)).thenReturn(Optional.empty());
             when(pgClient.ready(any())).thenReturn(readyResult);
 
             CreatePaymentResponse response = paymentService.pay(request);
 
-            assertThat(response).isNotNull();
-            verify(paymentRepository).save(any());
+            assertThat(response.status()).isEqualTo(PaymentStatus.READY.name());
+            assertThat(response.amount()).isEqualTo(10000L);
+            assertThat(response.transactionKey()).isEqualTo("PG_KEY_123");
+
+            ArgumentCaptor<Payment> captor = ArgumentCaptor.forClass(Payment.class);
+            verify(paymentRepository).save(captor.capture());
+            Payment saved = captor.getValue();
+            assertThat(saved.getOrderId()).isEqualTo(1L);
+            assertThat(saved.getUserId()).isEqualTo(1L);
+            assertThat(saved.getPaymentStatus()).isEqualTo(PaymentStatus.READY);
+        }
+
+        @Test
+        @DisplayName("이전에 실패한 결제가 있으면 재시도로 처리된다.")
+        void successPaymentRetryAfterFailed() {
+            Order order = mock(Order.class);
+            when(order.getTotalAmount()).thenReturn(10000L);
+
+            PgReadyResult readyResult = mock(PgReadyResult.class);
+            when(readyResult.transactionKey()).thenReturn("PG_KEY_123");
+            when(readyResult.orderId()).thenReturn("PG_ORDER_1");
+            when(readyResult.redirectionUrl()).thenReturn("https://pg.example/redirect");
+
+            Payment failedPayment = Payment.create(1L, 1L, 10000L);
+            failedPayment.fail();
+
+            when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+            when(paymentRepository.findByOrderId(1L)).thenReturn(Optional.of(failedPayment));
+            when(pgClient.ready(any())).thenReturn(readyResult);
+
+            paymentService.pay(request);
+
+            verify(paymentRepository).save(failedPayment);
+            assertThat(failedPayment.getOrderId()).isEqualTo(1L);
+            assertThat(failedPayment.getUserId()).isEqualTo(1L);
+            assertThat(failedPayment.getPaymentStatus()).isEqualTo(PaymentStatus.READY);
+            assertThat(failedPayment.getPgOrderId()).isEqualTo("PG_ORDER_1");
         }
 
         @Test
         @DisplayName("주문이 존재하지 않으면 예외가 발생한다.")
         void payOrderNotFound() {
+
             when(orderRepository.findById(1L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> paymentService.pay(request))
@@ -115,8 +154,10 @@ class PaymentServiceImplTest {
         void payAlreadyExists() {
             Order order = mock(Order.class);
 
+            Payment existingPayment = Payment.create(1L, 1L, 10000L);
+
             when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
-            when(paymentRepository.existsByOrderId(1L)).thenReturn(true);
+            when(paymentRepository.findByOrderId(1L)).thenReturn(Optional.of(existingPayment));
 
             assertThatThrownBy(() -> paymentService.pay(request))
                     .isInstanceOf(BusinessException.class)
@@ -124,6 +165,7 @@ class PaymentServiceImplTest {
                     .isEqualTo(PaymentErrorCode.PAYMENT_ALREADY_EXISTS);
 
             verifyNoInteractions(pgClient);
+            verify(paymentRepository, never()).save(any());
         }
 
         @Test
@@ -133,7 +175,7 @@ class PaymentServiceImplTest {
             when(order.getTotalAmount()).thenReturn(15000L);
 
             when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
-            when(paymentRepository.existsByOrderId(1L)).thenReturn(false);
+            when(paymentRepository.findByOrderId(1L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> paymentService.pay(request))
                     .isInstanceOf(BusinessException.class)
@@ -141,6 +183,7 @@ class PaymentServiceImplTest {
                     .isEqualTo(PaymentErrorCode.INVALID_PAYMENT_AMOUNT);
 
             verifyNoInteractions(pgClient);
+            verify(paymentRepository, never()).save(any());
 
         }
 
@@ -151,8 +194,8 @@ class PaymentServiceImplTest {
             when(order.getTotalAmount()).thenReturn(10000L);
 
             when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
-            when(paymentRepository.existsByOrderId(1L)).thenReturn(false);
-            when(pgClient.ready(any())).thenThrow(new BusinessException(PaymentErrorCode.PG_REQUEST_FAILED));
+            when(paymentRepository.findByOrderId(1L)).thenReturn(Optional.empty());
+            when(pgClient.ready(any())).thenThrow(new PgClientException("PG_ERR_001", "카드 승인 거절"));
 
             assertThatThrownBy(() -> paymentService.pay(request))
                     .isInstanceOf(BusinessException.class)
@@ -172,15 +215,17 @@ class PaymentServiceImplTest {
 
             PgReadyResult readyResult = mock(PgReadyResult.class);
             when(readyResult.transactionKey()).thenReturn("PG_KEY_123");
-
             when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
-            when(paymentRepository.existsByOrderId(1L)).thenReturn(false);
+            when(paymentRepository.findByOrderId(1L)).thenReturn(Optional.empty());
+
             when(pgClient.ready(any())).thenReturn(readyResult);
 
             CreatePaymentRequest pointRequest = new CreatePaymentRequest(1L, 10000L, 3000L);
             CreatePaymentResponse response = paymentService.pay(pointRequest);
 
-            assertThat(response).isNotNull();
+            assertThat(response.status()).isEqualTo(PaymentStatus.READY.name());
+            assertThat(response.amount()).isEqualTo(10000L);
+
             verify(pointService).usePoint(1L, 3000L, "ORDER:1:POINT_USE");
 
             ArgumentCaptor<PgReadyCommand> captor = ArgumentCaptor.forClass(PgReadyCommand.class);
@@ -200,7 +245,7 @@ class PaymentServiceImplTest {
             when(readyResult.transactionKey()).thenReturn("PG_KEY_123");
 
             when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
-            when(paymentRepository.existsByOrderId(1L)).thenReturn(false);
+            when(paymentRepository.findByOrderId(1L)).thenReturn(Optional.empty());
             when(pgClient.ready(any())).thenReturn(readyResult);
 
             paymentService.pay(request);
@@ -215,7 +260,7 @@ class PaymentServiceImplTest {
             when(order.getTotalAmount()).thenReturn(10000L);
 
             when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
-            when(paymentRepository.existsByOrderId(1L)).thenReturn(false);
+            when(paymentRepository.findByOrderId(1L)).thenReturn(Optional.empty());
 
             CreatePaymentRequest invalidRequest = new CreatePaymentRequest(1L, 10000L, -100L);
 
@@ -234,7 +279,7 @@ class PaymentServiceImplTest {
             when(order.getTotalAmount()).thenReturn(10000L);
 
             when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
-            when(paymentRepository.existsByOrderId(1L)).thenReturn(false);
+            when(paymentRepository.findByOrderId(1L)).thenReturn(Optional.empty());
 
             CreatePaymentRequest invalidRequest = new CreatePaymentRequest(1L, 10000L, 15000L);
 
@@ -288,8 +333,11 @@ class PaymentServiceImplTest {
             paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123"));
 
             assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.FAILED);
-            verifyNoInteractions(paymentResultEventPublisher);
 
+            ArgumentCaptor<PaymentFailEvent> captor = ArgumentCaptor.forClass(PaymentFailEvent.class);
+            verify(paymentResultEventPublisher).publishFailed(captor.capture());
+            assertThat(captor.getValue().orderId()).isEqualTo(payment.getOrderId());
+            assertThat(captor.getValue().paymentId()).isEqualTo(payment.getId());
         }
 
         @Test

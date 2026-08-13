@@ -2,20 +2,24 @@ package com.programmers.kdt.order.client;
 
 import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.common.response.ApiResponse;
-import com.programmers.kdt.order.dto.ValidateTicketRequest;
-import com.programmers.kdt.order.dto.TicketReleaseRequest;
-import com.programmers.kdt.order.dto.TicketCancelRequest;
-import com.programmers.kdt.order.dto.TicketReserveRequest;
 import com.programmers.kdt.order.dto.OrderTicketRequest;
+import com.programmers.kdt.order.dto.TicketCancelRequest;
+import com.programmers.kdt.order.dto.TicketReleaseRequest;
+import com.programmers.kdt.order.dto.TicketReserveRequest;
+import com.programmers.kdt.order.dto.ValidateTicketRequest;
 import com.programmers.kdt.order.exception.OrderErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.util.List;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class TicketApiClient implements TicketClient {
@@ -23,14 +27,19 @@ public class TicketApiClient implements TicketClient {
     private final RestClient restClient;
 
     @Override
-    public void validateTicket(ValidateTicketRequest ticketRequest){
+    public void validateTicket(ValidateTicketRequest request){
         try{
             restClient.post()
                     .uri("/api/tickets/hold/validation")
-                    .body(ticketRequest)
+                    .body(request)
                     .retrieve()
                     .toBodilessEntity();
         } catch (RestClientException e){
+            log.error("티켓 검증 실패 ticketId={}", request.ticketId(), e);
+            if (e instanceof RestClientResponseException rcre
+                    && rcre.getStatusCode().value() == HttpStatus.NOT_FOUND.value()) {
+                throw new BusinessException(OrderErrorCode.TICKET_NOT_FOUND);
+            }
             throw new BusinessException(OrderErrorCode.TICKET_VALIDATION_FAILED);
         }
     }
@@ -45,6 +54,11 @@ public class TicketApiClient implements TicketClient {
                     .toBodilessEntity();
 
         } catch (RestClientException e) {
+            log.error("티켓 점유 실패 ticketId={}", request.ticketId(), e);
+            if (e instanceof RestClientResponseException rcre
+                    && rcre.getStatusCode().value() == HttpStatus.NOT_FOUND.value()) {
+                throw new BusinessException(OrderErrorCode.TICKET_NOT_FOUND);
+            }
             throw new BusinessException(OrderErrorCode.TICKET_RESERVE_FAILED);
         }
     }
@@ -58,6 +72,11 @@ public class TicketApiClient implements TicketClient {
                     .toBodilessEntity();
 
         } catch (RestClientException e) {
+            log.error("티켓 점유 해제 실패 ticketId={}", request.ticketId(), e);
+            if(e instanceof RestClientResponseException rcre
+                    && rcre.getStatusCode().value() == HttpStatus.NOT_FOUND.value()){
+                throw new BusinessException(OrderErrorCode.TICKET_NOT_FOUND);
+            }
             throw new BusinessException(OrderErrorCode.TICKET_RELEASE_FAILED);
         }
     }
@@ -72,6 +91,11 @@ public class TicketApiClient implements TicketClient {
                     .toBodilessEntity();
 
         } catch (RestClientException e) {
+            log.error("티켓 취소에 따른 좌석 점유 해제 실패 ticketId={}", request.ticketId(), e);
+            if(e instanceof RestClientResponseException rcre
+                    && rcre.getStatusCode().value() == HttpStatus.NOT_FOUND.value()) {
+                throw new BusinessException(OrderErrorCode.TICKET_NOT_FOUND);
+            }
             throw new BusinessException(OrderErrorCode.TICKET_RELEASE_FAILED);
         }
     }
@@ -94,6 +118,7 @@ public class TicketApiClient implements TicketClient {
             return response.data();
 
         } catch (RestClientException e) {
+            log.error("티켓 정보 조회 실패 userId={}", request.userId(), e);
             throw new BusinessException(OrderErrorCode.TICKET_INFO_GET_FAILED);
         }
     }

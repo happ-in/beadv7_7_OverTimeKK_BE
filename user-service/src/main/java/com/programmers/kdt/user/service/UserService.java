@@ -8,6 +8,8 @@ import com.programmers.kdt.user.dto.SignUpBusinessRequest;
 import com.programmers.kdt.user.dto.SignUpIndividualRequest;
 import com.programmers.kdt.user.dto.UserResponse;
 import com.programmers.kdt.user.dto.WithdrawRequest;
+import com.programmers.kdt.user.dto.EmailNotificationRequest;
+import com.programmers.kdt.user.email.EmailSender;
 import com.programmers.kdt.user.email.EmailVerificationService;
 import com.programmers.kdt.user.entity.User;
 import com.programmers.kdt.user.exception.UserErrorCode;
@@ -15,6 +17,7 @@ import com.programmers.kdt.common.jwt.JwtProvider;
 import com.programmers.kdt.user.jwt.RefreshTokenStore;
 import com.programmers.kdt.user.repository.UserRepository;
 import io.jsonwebtoken.JwtException;
+import jakarta.validation.constraints.Email;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -39,6 +42,7 @@ public class UserService {
     private final JwtProvider jwtProvider;
     private final RefreshTokenStore refreshTokenStore;
     private final EmailVerificationService emailVerificationService;
+    private final EmailSender emailSender;
 
     @Transactional
     public UserResponse signUpIndividual(SignUpIndividualRequest request) {
@@ -194,5 +198,15 @@ public class UserService {
                 .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
 
         return UserResponse.from(user);
+    }
+
+    @Transactional(readOnly = true)
+    public void sendNotificationEmail(Long userId, EmailNotificationRequest request) {
+        // 1. 유저 조회 (없으면 404 예외 올려라~)
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+
+        emailSender.send(user.getEmail(), request.subject(), request.body());
+
     }
 }

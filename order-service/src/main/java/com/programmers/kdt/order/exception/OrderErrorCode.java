@@ -12,6 +12,7 @@ public enum OrderErrorCode implements ErrorCode {
     TICKET_VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "ORD400_006", "유효하지 않은 티켓이거나 점유 정보가 일치하지 않습니다."),
     ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "ORD404_001", "주문을 찾을 수 없습니다."),
     TICKET_INFO_NOT_FOUND(HttpStatus.NOT_FOUND, "ORD404_002","주문에 해당하는 티켓 정보를 찾을 수 없습니다."),
+    TICKET_NOT_FOUND(HttpStatus.NOT_FOUND, "ORD404_003", "티켓을 찾을 수 없습니다."),
     ORDER_NOT_PENDING(HttpStatus.CONFLICT, "ORD409_001", "결제 대기 상태의 주문이 아닙니다."),
     ORDER_NOT_PAYMENT_STARTED(HttpStatus.CONFLICT, "ORD409_002", "결제가 시작된 주문만 완료할 수 있습니다."),
     ORDER_ALREADY_EXPIRED(HttpStatus.CONFLICT, "ORD409_003", "이미 만료된 주문입니다."),
