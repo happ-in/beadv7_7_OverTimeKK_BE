@@ -13,6 +13,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequ
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 import java.time.Duration;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -25,11 +26,10 @@ public class S3ImageService {
     private static final Duration UPLOAD_URL_EXPIRED = Duration.ofMinutes(1); // S3 업로드 URL 유효시간 1분
     private static final Duration ALLOWED_GET_URL_EXPIRED = Duration.ofMinutes(30);
 
-    private static final Set<String> ALLOWED_EXTENSION = Set.of(".png", ".jpg", ".jpeg");
-    private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
-            "image/jpeg",
-            "image/png",
-            "image/jpg"
+    private static final Map<String, Set<String>> CONTENT_TYPE_TO_EXTENSIONS = Map.of(
+            "image/jpeg", Set.of(".jpg", ".jpeg"),
+            "image/jpg", Set.of(".jpg", ".jpeg"),
+            "image/png", Set.of(".png")
     );
 
     private final S3Presigner s3Presigner;
@@ -42,10 +42,11 @@ public class S3ImageService {
 
     public ImgUploadUrlResponse createUploadUrl(
             String originalFileName, String contentType, Long fileSize) {
-        validateContentType(contentType);
-        validateFileSize(fileSize);
 
+        validateFileSize(fileSize);
         String extension = extractExtension(originalFileName);
+        validateContentType(contentType, extension);
+
         String objectKey = imagePrefix + UUID.randomUUID() + extension;
 
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
@@ -68,9 +69,15 @@ public class S3ImageService {
         );
     }
 
-    private void validateContentType(String contentType) {
-        if (!ALLOWED_CONTENT_TYPES.contains(contentType)) {
+    private void validateContentType(String contentType, String extension) {
+        Set<String> allowedExtensions = CONTENT_TYPE_TO_EXTENSIONS.get(contentType);
+
+        if (allowedExtensions == null) {
             throw new IllegalArgumentException("지원하지 않는 이미지 형식입니다.");
+        }
+
+        if (!allowedExtensions.contains(extension)) {
+            throw new IllegalArgumentException("실제 확장자와 Content-Type이 일치하지 않습니다.");
         }
     }
 
@@ -91,13 +98,7 @@ public class S3ImageService {
             throw new IllegalArgumentException("확장자명이 존재하지 않습니다.");
         }
 
-        String extension = originalFileName.substring(dotIndex).toLowerCase();
-
-        if (!ALLOWED_EXTENSION.contains(extension)) {
-            throw new IllegalArgumentException("png, jpg, jpeg 확장자만 가능합니다.");
-        }
-
-        return extension;
+        return originalFileName.substring(dotIndex).toLowerCase();
     }
 
     public String getPresignedGetUrl(String objectKey) {
