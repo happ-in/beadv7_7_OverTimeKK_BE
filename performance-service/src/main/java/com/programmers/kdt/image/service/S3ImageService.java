@@ -20,9 +20,12 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class S3ImageService {
 
-    private static final Duration UPLOAD_URL_EXPIRED = Duration.ofMinutes(5);
+    private static final Long IMG_MAX_SIZE = 3 * 1024 * 1024L ; // 3MB 제한
+
+    private static final Duration UPLOAD_URL_EXPIRED = Duration.ofMinutes(1); // S3 업로드 URL 유효시간 1분
     private static final Duration ALLOWED_GET_URL_EXPIRED = Duration.ofMinutes(30);
 
+    private static final Set<String> ALLOWED_EXTENSION = Set.of(".png", ".jpg", ".jpeg");
     private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
             "image/jpeg",
             "image/png",
@@ -38,10 +41,9 @@ public class S3ImageService {
     private String imagePrefix;
 
     public ImgUploadUrlResponse createUploadUrl(
-            String originalFileName,
-            String contentType
-    ) {
+            String originalFileName, String contentType, Long fileSize) {
         validateContentType(contentType);
+        validateFileSize(fileSize);
 
         String extension = extractExtension(originalFileName);
         String objectKey = imagePrefix + UUID.randomUUID() + extension;
@@ -50,6 +52,7 @@ public class S3ImageService {
                 .bucket(bucket)
                 .key(objectKey)
                 .contentType(contentType)
+                .contentLength(fileSize)
                 .build();
 
         PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
@@ -67,26 +70,34 @@ public class S3ImageService {
 
     private void validateContentType(String contentType) {
         if (!ALLOWED_CONTENT_TYPES.contains(contentType)) {
-            throw new IllegalArgumentException(
-                    "지원하지 않는 이미지 형식입니다."
-            );
+            throw new IllegalArgumentException("지원하지 않는 이미지 형식입니다.");
+        }
+    }
+
+    private void validateFileSize(Long fileSize) {
+        if (fileSize >= IMG_MAX_SIZE) {
+            throw new IllegalArgumentException("이미지 최대 크기는 3MB입니다.");
         }
     }
 
     private String extractExtension(String originalFileName) {
         if (originalFileName == null) {
-            return "";
+            throw new IllegalArgumentException("파일명을 입력해주세요.");
         }
 
         int dotIndex = originalFileName.lastIndexOf(".");
 
         if (dotIndex < 0) {
-            return "";
+            throw new IllegalArgumentException("확장자명이 존재하지 않습니다.");
         }
 
-        return originalFileName
-                .substring(dotIndex)
-                .toLowerCase();
+        String extension = originalFileName.substring(dotIndex).toLowerCase();
+
+        if (!ALLOWED_EXTENSION.contains(extension)) {
+            throw new IllegalArgumentException("png, jpg, jpeg 확장자만 가능합니다.");
+        }
+
+        return extension;
     }
 
     public String getPresignedGetUrl(String objectKey) {
