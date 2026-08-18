@@ -23,8 +23,10 @@ public class PaymentController {
 
     // 결제 요청
     @PostMapping("/pay")
-    public ResponseEntity<ApiResponse<CreatePaymentResponse>> pay(@Valid @RequestBody CreatePaymentRequest request) {
-        CreatePaymentResponse response = paymentService.pay(request);
+    public ResponseEntity<ApiResponse<CreatePaymentResponse>> pay(
+            @Valid @RequestBody CreatePaymentRequest request,
+            @RequestHeader("X-User-Id") Long userId) {
+        CreatePaymentResponse response = paymentService.pay(request, userId);
         return ResponseEntity.created(URI.create("/api/payments/" + response.paymentId())).body(ApiResponse.success(response));
     }
 
@@ -32,9 +34,10 @@ public class PaymentController {
     @PostMapping("/{paymentId}/confirm")
     public ApiResponse<ConfirmPaymentResponse> confirm(
             @PathVariable Long paymentId,
-            @Valid @RequestBody ConfirmPaymentRequest request
+            @Valid @RequestBody ConfirmPaymentRequest request,
+            @RequestHeader("X-User-Id") Long userId
     ) {
-        ConfirmPaymentResponse response = paymentService.confirm(paymentId, request);
+        ConfirmPaymentResponse response = paymentService.confirm(paymentId, request, userId);
         return ApiResponse.success(response);
     }
 
@@ -42,16 +45,17 @@ public class PaymentController {
     @PostMapping("/{paymentId}/fail")
     public ApiResponse<FailPaymentResponse> fail(
             @PathVariable Long paymentId,
-            @RequestBody FailPaymentRequest request
+            @RequestBody FailPaymentRequest request,
+            @RequestHeader("X-User-Id") Long userId
     ) {
-        FailPaymentResponse response = paymentService.fail(paymentId, request);
+        FailPaymentResponse response = paymentService.fail(paymentId, request, userId);
         return ApiResponse.success(response);
     }
 
     // 결제 내역 조회
     @GetMapping
     public ApiResponse<Page<GetPaymentHistoryResponse>> getPaymentHistory(
-            @RequestParam Long userId,
+            @RequestHeader("X-User-Id") Long userId,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
         Page<GetPaymentHistoryResponse> response = paymentService.getPaymentHistory(userId, pageable);
@@ -61,9 +65,10 @@ public class PaymentController {
     @GetMapping("/{paymentId}/refunds")
     public ApiResponse<Page<GetPaymentRefundHistoryResponse>> getRefundHistory(
             @PathVariable Long paymentId,
-            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+            @RequestHeader("X-User-Id") Long userId
     ) {
-        Page<GetPaymentRefundHistoryResponse> response = paymentService.getRefundHistory(paymentId, pageable);
+        Page<GetPaymentRefundHistoryResponse> response = paymentService.getRefundHistory(paymentId, userId, pageable);
         return ApiResponse.success(response);
     }
 }

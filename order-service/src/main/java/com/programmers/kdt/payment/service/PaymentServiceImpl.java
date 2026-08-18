@@ -52,9 +52,11 @@ public class PaymentServiceImpl implements PaymentService{
 
     // 결제 생성
     @Transactional
-    public CreatePaymentResponse pay(CreatePaymentRequest request) {
+    public CreatePaymentResponse pay(CreatePaymentRequest request, Long userId) {
         Order order = orderRepository.findById(request.orderId())
                 .orElseThrow(() -> new BusinessException(PaymentErrorCode.ORDER_NOT_FOUND));
+
+        if (!order.getUserId().equals(userId)) throw new BusinessException(PaymentErrorCode.PAYMENT_ACCESS_DENIED);
 
         Optional<Payment> existing = paymentRepository.findByOrderId(request.orderId());
         if (existing.isPresent() && existing.get().getPaymentStatus() != PaymentStatus.FAILED) {
@@ -99,8 +101,10 @@ public class PaymentServiceImpl implements PaymentService{
 
     // 결제 확인
     @Transactional
-    public ConfirmPaymentResponse confirm(Long paymentId, ConfirmPaymentRequest request) {
+    public ConfirmPaymentResponse confirm(Long paymentId, ConfirmPaymentRequest request, Long userId) {
         Payment payment = getPayment(paymentId);
+
+        if (!payment.getUserId().equals(userId)) throw new BusinessException(PaymentErrorCode.PAYMENT_ACCESS_DENIED);
 
         // 상태 검증
         if (payment.getPaymentStatus() != PaymentStatus.READY) {
@@ -136,8 +140,10 @@ public class PaymentServiceImpl implements PaymentService{
 
     // 결제 실패 요청
     @Transactional
-    public FailPaymentResponse fail(Long paymentId, FailPaymentRequest request) {
+    public FailPaymentResponse fail(Long paymentId, FailPaymentRequest request, Long userId) {
         Payment payment = getPayment(paymentId);
+
+        if (!payment.getUserId().equals(userId)) throw new BusinessException(PaymentErrorCode.PAYMENT_ACCESS_DENIED);
 
         boolean alreadyFailed = payment.getPaymentStatus() == PaymentStatus.FAILED;
         payment.fail();
@@ -253,10 +259,10 @@ public class PaymentServiceImpl implements PaymentService{
 
     // 환불 내역 조회
     @Transactional(readOnly = true)
-    public Page<GetPaymentRefundHistoryResponse> getRefundHistory (Long paymentId, Pageable pageable) {
-        if (!paymentRepository.existsById(paymentId)) {
-            throw new BusinessException(PaymentErrorCode.PAYMENT_NOT_FOUND);
-        }
+    public Page<GetPaymentRefundHistoryResponse> getRefundHistory (Long paymentId, Long userId, Pageable pageable) {
+        Payment payment = getPayment(paymentId);
+
+        if (!payment.getUserId().equals(userId)) throw new BusinessException(PaymentErrorCode.PAYMENT_ACCESS_DENIED);
 
         return paymentRefundRepository.findByPaymentId(paymentId, pageable)
                 .map(GetPaymentRefundHistoryResponse::from);
