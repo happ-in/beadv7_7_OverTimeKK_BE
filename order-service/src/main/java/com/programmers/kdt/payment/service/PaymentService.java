@@ -8,13 +8,13 @@ import org.springframework.data.domain.Pageable;
 public interface PaymentService {
 
     // 결제 생성
-    CreatePaymentResponse pay(CreatePaymentRequest request);
+    CreatePaymentResponse pay(CreatePaymentRequest request, Long userId);
 
     // 결제 승인
-    ConfirmPaymentResponse confirm(Long paymentId, ConfirmPaymentRequest request);
+    ConfirmPaymentResponse confirm(Long paymentId, ConfirmPaymentRequest request, Long userId);
 
     // 결제 실패
-    FailPaymentResponse fail(Long paymentId, FailPaymentRequest request);
+    FailPaymentResponse fail(Long paymentId, FailPaymentRequest request, Long userId);
 
     // 결제 내역 조회
     Page<GetPaymentHistoryResponse> getPaymentHistory(Long userId, Pageable pageable);
@@ -25,7 +25,7 @@ public interface PaymentService {
     void onRefundRequested(RefundRequestEvent event);
 
     // 환불 내역 조회
-    Page<GetPaymentRefundHistoryResponse> getRefundHistory (Long paymentId, Pageable pageable);
+    Page<GetPaymentRefundHistoryResponse> getRefundHistory (Long paymentId, Long userId, Pageable pageable);
 
 
 
