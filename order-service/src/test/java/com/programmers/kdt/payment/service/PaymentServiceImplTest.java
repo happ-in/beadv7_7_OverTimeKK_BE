@@ -94,7 +94,7 @@ class PaymentServiceImplTest {
             when(paymentRepository.findByOrderId(1L)).thenReturn(Optional.empty());
             when(pgClient.ready(any())).thenReturn(readyResult);
 
-            CreatePaymentResponse response = paymentService.pay(request);
+            CreatePaymentResponse response = paymentService.pay(request, 1L);
 
             assertThat(response.status()).isEqualTo(PaymentStatus.READY.name());
             assertThat(response.amount()).isEqualTo(10000L);
@@ -112,6 +112,7 @@ class PaymentServiceImplTest {
         @DisplayName("이전에 실패한 결제가 있으면 재시도로 처리된다.")
         void successPaymentRetryAfterFailed() {
             Order order = mock(Order.class);
+            when(order.getUserId()).thenReturn(1L);
             when(order.getTotalAmount()).thenReturn(10000L);
 
             PgReadyResult readyResult = mock(PgReadyResult.class);
@@ -126,7 +127,7 @@ class PaymentServiceImplTest {
             when(paymentRepository.findByOrderId(1L)).thenReturn(Optional.of(failedPayment));
             when(pgClient.ready(any())).thenReturn(readyResult);
 
-            paymentService.pay(request);
+            paymentService.pay(request, 1L);
 
             verify(paymentRepository).save(failedPayment);
             assertThat(failedPayment.getOrderId()).isEqualTo(1L);
@@ -141,7 +142,7 @@ class PaymentServiceImplTest {
 
             when(orderRepository.findById(1L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> paymentService.pay(request))
+            assertThatThrownBy(() -> paymentService.pay(request, 1L))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(PaymentErrorCode.ORDER_NOT_FOUND);
@@ -153,13 +154,14 @@ class PaymentServiceImplTest {
         @DisplayName("이미 결제가 생성된 주문이면 예외가 발생한다.")
         void payAlreadyExists() {
             Order order = mock(Order.class);
+            when(order.getUserId()).thenReturn(1L);
 
             Payment existingPayment = Payment.create(1L, 1L, 10000L);
 
             when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
             when(paymentRepository.findByOrderId(1L)).thenReturn(Optional.of(existingPayment));
 
-            assertThatThrownBy(() -> paymentService.pay(request))
+            assertThatThrownBy(() -> paymentService.pay(request, 1L))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(PaymentErrorCode.PAYMENT_ALREADY_EXISTS);
@@ -172,12 +174,14 @@ class PaymentServiceImplTest {
         @DisplayName("요청 금액이 주문 금액과 다르면 예외가 발생한다.")
         void payAmountMismatch() {
             Order order = mock(Order.class);
+            when(order.getUserId()).thenReturn(1L);
             when(order.getTotalAmount()).thenReturn(15000L);
+
 
             when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
             when(paymentRepository.findByOrderId(1L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> paymentService.pay(request))
+            assertThatThrownBy(() -> paymentService.pay(request, 1L))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(PaymentErrorCode.INVALID_PAYMENT_AMOUNT);
@@ -191,13 +195,14 @@ class PaymentServiceImplTest {
         @DisplayName("PG사 요청이 실패하면 예외가 발생하고 저장되지 않는다.")
         void payPgFailure() {
             Order order = mock(Order.class);
+            when(order.getUserId()).thenReturn(1L);
             when(order.getTotalAmount()).thenReturn(10000L);
 
             when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
             when(paymentRepository.findByOrderId(1L)).thenReturn(Optional.empty());
             when(pgClient.ready(any())).thenThrow(new PgClientException("PG_ERR_001", "카드 승인 거절"));
 
-            assertThatThrownBy(() -> paymentService.pay(request))
+            assertThatThrownBy(() -> paymentService.pay(request, 1L))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(PaymentErrorCode.PG_REQUEST_FAILED);
@@ -221,7 +226,7 @@ class PaymentServiceImplTest {
             when(pgClient.ready(any())).thenReturn(readyResult);
 
             CreatePaymentRequest pointRequest = new CreatePaymentRequest(1L, 10000L, 3000L);
-            CreatePaymentResponse response = paymentService.pay(pointRequest);
+            CreatePaymentResponse response = paymentService.pay(pointRequest, 1L);
 
             assertThat(response.status()).isEqualTo(PaymentStatus.READY.name());
             assertThat(response.amount()).isEqualTo(10000L);
@@ -248,7 +253,7 @@ class PaymentServiceImplTest {
             when(paymentRepository.findByOrderId(1L)).thenReturn(Optional.empty());
             when(pgClient.ready(any())).thenReturn(readyResult);
 
-            paymentService.pay(request);
+            paymentService.pay(request, 1L);
 
             verifyNoInteractions(pointService);
         }
@@ -257,6 +262,7 @@ class PaymentServiceImplTest {
         @DisplayName("사용 포인트가 음수면 예외가 발생한다.")
         void payUsedPointNegative() {
             Order order = Mockito.mock(Order.class);
+            when(order.getUserId()).thenReturn(1L);
             when(order.getTotalAmount()).thenReturn(10000L);
 
             when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
@@ -264,7 +270,7 @@ class PaymentServiceImplTest {
 
             CreatePaymentRequest invalidRequest = new CreatePaymentRequest(1L, 10000L, -100L);
 
-            assertThatThrownBy(() -> paymentService.pay(invalidRequest))
+            assertThatThrownBy(() -> paymentService.pay(invalidRequest, 1L))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(PaymentErrorCode.INVALID_PAYMENT_AMOUNT);
@@ -276,6 +282,7 @@ class PaymentServiceImplTest {
         @DisplayName("사용 포인트가 주문 금액보다 크면 예외가 발생한다.")
         void payUsedPointExceedsAmount() {
             Order order = Mockito.mock(Order.class);
+            when(order.getUserId()).thenReturn(1L);
             when(order.getTotalAmount()).thenReturn(10000L);
 
             when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
@@ -283,7 +290,7 @@ class PaymentServiceImplTest {
 
             CreatePaymentRequest invalidRequest = new CreatePaymentRequest(1L, 10000L, 15000L);
 
-            assertThatThrownBy(() -> paymentService.pay(invalidRequest))
+            assertThatThrownBy(() -> paymentService.pay(invalidRequest, 1L))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(PaymentErrorCode.INVALID_PAYMENT_AMOUNT);
@@ -314,7 +321,7 @@ class PaymentServiceImplTest {
             when(approveResult.success()).thenReturn(true);
             when(pgClient.approve(any())).thenReturn(approveResult);
 
-            ConfirmPaymentResponse response = paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123"));
+            ConfirmPaymentResponse response = paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123"), 100L);
 
             assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.PAID);
             assertThat(payment.getPaymentKey()).isEqualTo("PG_KEY_123");
@@ -330,7 +337,7 @@ class PaymentServiceImplTest {
             when(approveResult.success()).thenReturn(false);
             when(pgClient.approve(any())).thenReturn(approveResult);
 
-            paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123"));
+            paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123"), 100L);
 
             assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.FAILED);
 
@@ -345,7 +352,7 @@ class PaymentServiceImplTest {
         void confirmPaymentNotFound() {
             when(paymentRepository.findById(1L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123")))
+            assertThatThrownBy(() -> paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123"), 100L))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(PaymentErrorCode.PAYMENT_NOT_FOUND);
@@ -362,7 +369,7 @@ class PaymentServiceImplTest {
 
             when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
 
-            assertThatThrownBy(() -> paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123")))
+            assertThatThrownBy(() -> paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123"), 100L))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(PaymentErrorCode.INVALID_PAYMENT_STATUS);
@@ -377,7 +384,7 @@ class PaymentServiceImplTest {
             when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
             when(pgClient.approve(any())).thenThrow(new BusinessException(PaymentErrorCode.PG_REQUEST_FAILED));
 
-            assertThatThrownBy(() -> paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123")))
+            assertThatThrownBy(() -> paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123"), 100L))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(PaymentErrorCode.PG_REQUEST_FAILED);
@@ -396,7 +403,7 @@ class PaymentServiceImplTest {
             when(approveResult.success()).thenReturn(true);
             when(pgClient.approve(any())).thenReturn(approveResult);
 
-            paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123"));
+            paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123"), 100L);
 
             ArgumentCaptor<PgApproveCommand> captor = ArgumentCaptor.forClass(PgApproveCommand.class);
             verify(pgClient).approve(captor.capture());
@@ -415,7 +422,7 @@ class PaymentServiceImplTest {
             when(approveResult.success()).thenReturn(false);
             when(pgClient.approve(any())).thenReturn(approveResult);
 
-            paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123"));
+            paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123"), 100L);
 
             assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.FAILED);
             verify(pointService).rollbackPoint("ORDER:1:POINT_USE", 3000L, "ORDER:1:POINT_ROLLBACK_FAIL", true);
@@ -430,7 +437,7 @@ class PaymentServiceImplTest {
             when(approveResult.success()).thenReturn(false);
             when(pgClient.approve(any())).thenReturn(approveResult);
 
-            paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123"));
+            paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123"), 100L);
 
             verify(pointService, never()).rollbackPoint(any(), any(), any(), anyBoolean());
         }
@@ -444,7 +451,7 @@ class PaymentServiceImplTest {
             when(approveResult.success()).thenReturn(true);
             when(pgClient.approve(any())).thenReturn(approveResult);
 
-            paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123"));
+            paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123"), 100L);
 
             ArgumentCaptor<PaymentConfirmEvent> captor =
                     ArgumentCaptor.forClass(PaymentConfirmEvent.class);
@@ -470,7 +477,7 @@ class PaymentServiceImplTest {
         void failSuccess() {
             when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
 
-            FailPaymentResponse response = paymentService.fail(1L, new FailPaymentRequest("고객 요청"));
+            FailPaymentResponse response = paymentService.fail(1L, new FailPaymentRequest("고객 요청"), 100L);
 
             assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.FAILED);
             assertThat(response).isNotNull();
@@ -482,7 +489,7 @@ class PaymentServiceImplTest {
         void failPaymentNotFound() {
             when(paymentRepository.findById(1L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> paymentService.fail(1L, new FailPaymentRequest("고객 요청")))
+            assertThatThrownBy(() -> paymentService.fail(1L, new FailPaymentRequest("고객 요청"), 100L))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(PaymentErrorCode.PAYMENT_NOT_FOUND);
@@ -497,7 +504,7 @@ class PaymentServiceImplTest {
 
             when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
 
-            assertThatThrownBy(() -> paymentService.fail(1L, new FailPaymentRequest("고객 요청")))
+            assertThatThrownBy(() -> paymentService.fail(1L, new FailPaymentRequest("고객 요청"), 100L))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(PaymentErrorCode.INVALID_PAYMENT_STATUS);
@@ -512,7 +519,7 @@ class PaymentServiceImplTest {
 
             when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
 
-            FailPaymentResponse response = paymentService.fail(1L, new FailPaymentRequest("고객 요청"));
+            FailPaymentResponse response = paymentService.fail(1L, new FailPaymentRequest("고객 요청"), 100L);
 
             assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.FAILED);
             assertThat(response).isNotNull();
@@ -527,7 +534,7 @@ class PaymentServiceImplTest {
             when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
             doThrow(new BusinessException(PaymentErrorCode.PG_REQUEST_FAILED)).when(pgClient).cancel(any());
 
-            assertThatThrownBy(() -> paymentService.fail(1L, new FailPaymentRequest("PG사 취소 요청")))
+            assertThatThrownBy(() -> paymentService.fail(1L, new FailPaymentRequest("PG사 취소 요청"), 100L))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(PaymentErrorCode.PG_REQUEST_FAILED);
@@ -541,7 +548,7 @@ class PaymentServiceImplTest {
             when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
             when(pointService.findUsedAmount("ORDER:1:POINT_USE")).thenReturn(3000L);
 
-            paymentService.fail(1L, new FailPaymentRequest("고객 요청"));
+            paymentService.fail(1L, new FailPaymentRequest("고객 요청"), 100L);
 
             verify(pgClient).cancel(any());
             verify(pointService).rollbackPoint("ORDER:1:POINT_USE", 3000L, "ORDER:1:POINT_ROLLBACK_FAIL", true);
@@ -554,7 +561,7 @@ class PaymentServiceImplTest {
             when(paymentRepository.findById(1L)).thenReturn(Optional.of(noKeyPayment));
             when(pointService.findUsedAmount("ORDER:1:POINT_USE")).thenReturn(3000L);
 
-            paymentService.fail(1L, new FailPaymentRequest("고객 요청"));
+            paymentService.fail(1L, new FailPaymentRequest("고객 요청"), 100L);
 
             assertThat(noKeyPayment.getPaymentStatus()).isEqualTo(PaymentStatus.FAILED);
             verifyNoInteractions(pgClient);
@@ -568,7 +575,7 @@ class PaymentServiceImplTest {
 
             when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
 
-            paymentService.fail(1L, new FailPaymentRequest("고객 요청"));
+            paymentService.fail(1L, new FailPaymentRequest("고객 요청"), 100L);
 
             verifyNoInteractions(pgClient, pointService);
         }
