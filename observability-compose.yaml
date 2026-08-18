@@ -9,6 +9,7 @@ services:
       - observability-prometheus-data:/prometheus
     command:
       - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-remote-write-receiver
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -42,6 +43,18 @@ services:
       - observability-tempo-data:/var/tempo
     command: -config.file=/etc/tempo.yaml
 
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: kdt-cadvisor
+    ports:
+      - "8085:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    privileged: true
+
   grafana:
     image: grafana/grafana:latest
     container_name: kdt-grafana
@@ -57,6 +70,7 @@ services:
       - prometheus
       - loki
       - tempo
+      - cadvisor
 
 volumes:
   observability-prometheus-data:
