@@ -7,6 +7,7 @@ import com.programmers.kdt.performance.exception.PerformanceErrorCode;
 import com.programmers.kdt.performance.repository.PerformanceSeatPriceRepository;
 import com.programmers.kdt.performance.repository.PerformanceSessionRepository;
 import com.programmers.kdt.standby.dto.CreateStandbyResponse;
+import com.programmers.kdt.standby.dto.StandbyListResponse;
 import com.programmers.kdt.standby.dto.StandbyRankResponse;
 import com.programmers.kdt.standby.entity.Standby;
 import com.programmers.kdt.standby.entity.StandbyStatus;
@@ -80,7 +81,32 @@ public class StandbyService {
         return new StandbyRankResponse(standby.getStandbyId(),zoneRanks);
     }
 
+    public List<StandbyListResponse> getStandby(Long userId) {
+        return standbyRepository.findByUserIdOrderByReservedAtDesc(userId).stream()
+                .map(this::toStandbyListResponse)
+                .toList();
+    }
 
+    private StandbyListResponse toStandbyListResponse(Standby standby) {
+        PerformanceSession session = standby.getPerformanceSession();
+        List<String> zones = Stream.of(standby.getZone1(), standby.getZone2(), standby.getZone3())
+                .filter(Objects::nonNull)
+                .toList();
+
+        return new StandbyListResponse(
+                standby.getStandbyId(),
+                session.getPerformanceSessionId().getPerformanceId(),
+                session.getPerformanceSessionId().getSessionNum(),
+                session.getPerformance().getTitle(),
+                session.getPerformanceStartAt(),
+                zones,
+                standby.getMatchedZone(),
+                standby.getTicketId(),
+                standby.getStandbyStatus().name(),
+                standby.getReservedAt(),
+                standby.getExpiredAt()
+        );
+    }
 
     private void validateZonesUsedByPerformance(Long performanceId, List<String> zones) {
         List<String> usableZones = performanceSeatPriceRepository

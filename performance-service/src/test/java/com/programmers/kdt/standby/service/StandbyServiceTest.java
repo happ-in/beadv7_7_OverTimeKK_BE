@@ -1,12 +1,14 @@
 package com.programmers.kdt.standby.service;
 
 import com.programmers.kdt.common.exception.BusinessException;
+import com.programmers.kdt.performance.entity.Performance;
 import com.programmers.kdt.performance.entity.PerformanceSession;
 import com.programmers.kdt.performance.entity.PerformanceSessionId;
 import com.programmers.kdt.performance.repository.PerformanceSeatPriceRepository;
 import com.programmers.kdt.performance.repository.PerformanceSessionRepository;
 import com.programmers.kdt.standby.entity.Standby;
 import com.programmers.kdt.standby.entity.StandbyStatus;
+import com.programmers.kdt.standby.dto.StandbyListResponse;
 import com.programmers.kdt.standby.dto.StandbyRankResponse;
 import com.programmers.kdt.standby.event.StandbyCheckResponseEvent;
 import com.programmers.kdt.standby.event.StandbyTicketEvent;
@@ -22,7 +24,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -612,6 +616,56 @@ class StandbyServiceTest {
                             exception -> assertThat(exception.getErrorCode())
                                     .isEqualTo(StandbyErrorCode.CANNOT_VIEW_RANK)
                     );
+        }
+    }
+
+    @Nested
+    @DisplayName("내 대기 목록 전체 조회(getStandby)")
+    class GetStandby {
+
+        private static final Long STANDBY_ID = 1L;
+
+        @Test
+        @DisplayName("내 대기 신청이 여러 건이면 각각 공연/회차/상태 정보로 매핑되어 반환된다.")
+        void returnsMappedListForUser() {
+            // given - 실제 도메인 객체(공연 → 회차 → 대기신청)를 팩토리 메서드로 조립, ID만 생성된 값으로 주입
+            Performance performance = Performance.createPerformance(
+                    "보노보노 콘서트", "보노보노의 콘서트입니다", 120L,
+                    LocalDate.now().plusDays(10), LocalDate.now().plusDays(11), null,
+                    777L, 1L, null);
+            LocalDateTime startAt = LocalDateTime.now().plusDays(10);
+            PerformanceSession realSession = PerformanceSession.create(sessionId(), performance, "보노보노", startAt);
+
+            Standby standby = Standby.apply(USER_ID, realSession, List.of("A", "B"));
+            standby.hold("A", 999L);
+            ReflectionTestUtils.setField(standby, "standbyId", STANDBY_ID);
+
+            given(standbyRepository.findByUserIdOrderByReservedAtDesc(USER_ID))
+                    .willReturn(List.of(standby));
+
+            // when
+            List<StandbyListResponse> responses = standbyService.getStandby(USER_ID);
+
+            // then
+            assertThat(responses).containsExactly(new StandbyListResponse(
+                    STANDBY_ID, PERFORMANCE_ID, SESSION_NUM, "보노보노 콘서트", startAt,
+                    List.of("A", "B"), "A", 999L, StandbyStatus.HELD.name(),
+                    standby.getReservedAt(), standby.getExpiredAt()
+            ));
+        }
+
+        @Test
+        @DisplayName("신청 내역이 없으면 빈 목록을 반환한다.")
+        void returnsEmptyListWhenNoStandby() {
+            // given
+            given(standbyRepository.findByUserIdOrderByReservedAtDesc(USER_ID))
+                    .willReturn(List.of());
+
+            // when
+            List<StandbyListResponse> responses = standbyService.getStandby(USER_ID);
+
+            // then
+            assertThat(responses).isEmpty();
         }
     }
 
