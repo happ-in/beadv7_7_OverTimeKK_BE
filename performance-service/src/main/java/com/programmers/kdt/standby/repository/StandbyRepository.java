@@ -15,6 +15,16 @@ public interface StandbyRepository extends JpaRepository<Standby, Long> {
 
     boolean existsByUserIdAndPerformanceSession(Long userId, PerformanceSession performanceSession);
 
+    @Query("""
+        select s
+        from Standby s
+        join fetch s.performanceSession ps
+        join fetch ps.performance
+        where s.userId = :userId
+        order by s.reservedAt desc
+        """)
+    List<Standby> findByUserIdOrderByReservedAtDesc(@Param("userId") Long userId);
+
     // zone을 지망(zone1/zone2/zone3)에 담아 대기 중인 사람 중 신청 순서(FIFO)가 가장 빠른 1명. 매칭 대상 선정용.
     @Query("select s from Standby s " +
             "where s.performanceSession = :session " +
