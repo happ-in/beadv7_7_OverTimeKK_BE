@@ -22,9 +22,11 @@ public class StandbyController {
     private final StandbyService standbyService;
 
     @PostMapping
-    public ResponseEntity<ApiResponse<CreateStandbyResponse>> issueStandby(@Valid @RequestBody CreateStandbyRequest request) {
+    public ResponseEntity<ApiResponse<CreateStandbyResponse>> issueStandby(
+            @Valid @RequestBody CreateStandbyRequest request,
+            @RequestHeader("X-User-Id") Long userId) {
         CreateStandbyResponse response = standbyService.applyStandby(
-                request.userId(), request.performanceId(), request.sessionNum(), request.zones());
+                userId, request.performanceId(), request.sessionNum(), request.zones());
         return ResponseEntity.created(URI.create("/api/standby/" + response.standbyId()))
                 .body(ApiResponse.success(response));
     }

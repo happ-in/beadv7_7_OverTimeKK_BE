@@ -105,6 +105,23 @@ services:
     networks:
       - reseat-net
 
+  gateway-service:
+    image: ghcr.io/${GHCR_OWNER}/gateway-service:${IMAGE_TAG:-latest}
+    container_name: gateway-service
+    depends_on:
+      - user-service
+      - order-service
+      - performance-service
+    environment:
+      USER_SERVICE_URL: http://user-service:8081
+      ORDER_SERVICE_URL: http://order-service:8082
+      PERFORMANCE_SERVICE_URL: http://performance-service:8083
+      JWT_SECRET: ${JWT_SECRET}
+    restart: unless-stopped
+    networks:
+      - reseat-net
+    # 8080 호스트로 노출 안 함 - nginx가 내부 네트워크로만 프록시
+
   frontend:
     image: ${FRONTEND_IMAGE:-ghcr.io/prgrms-be-adv-devcourse/beadv7_7_overtimekk_fe/frontend:latest}
     container_name: frontend
@@ -125,9 +142,7 @@ services:
       - ./certbot/www:/var/www/certbot:ro
       - ./certbot/conf:/etc/letsencrypt:ro
     depends_on:
-      - user-service
-      - order-service
-      - performance-service
+      - gateway-service
       - frontend
     restart: unless-stopped
     networks:
