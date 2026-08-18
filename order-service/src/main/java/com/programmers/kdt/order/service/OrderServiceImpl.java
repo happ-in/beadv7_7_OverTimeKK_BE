@@ -142,16 +142,19 @@ public class OrderServiceImpl implements OrderService {
     @Transactional(readOnly = true)
     public List<GetOrderHistoryResponse> getOrderHistory(Long userId) {
         List<Order> orders =
-                orderRepository.findByUserIdAndOrderStatusOrderByCreatedAtDesc(
+                orderRepository.findByUserIdAndOrderStatusInOrderByCreatedAtDesc(
                         userId,
-                        OrderStatus.COMPLETED
+                        List.of(OrderStatus.CANCELLED, OrderStatus.COMPLETED, OrderStatus.EXPIRED)
                 );
 
         if (orders.isEmpty()) {
             return List.of();
         }
 
-        List<TicketInfo> ticketInfos = ticketClient.getTickets(new OrderTicketRequest(userId));
+        List<Long> ticketIds = orders.stream()
+                .map(Order::getTicketId)
+                .toList();
+        List<TicketInfo> ticketInfos = ticketClient.getTickets(new OrderTicketRequest(ticketIds));
 
         Map<Long, TicketInfo> ticketInfoMap = ticketInfos.stream()
                 .collect(Collectors.toMap(

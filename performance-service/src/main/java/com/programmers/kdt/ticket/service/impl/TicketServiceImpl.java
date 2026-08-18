@@ -62,9 +62,12 @@ public class TicketServiceImpl implements TicketService {
     }
 
     @Override
-    public List<OrderTicketResponse> findOrderedTicketInfo(Long userId) {
-        // TODO : 페이징처리 필요
-        return ticketRepository.findTicketsByBuyUserId(userId);
+    public List<OrderTicketResponse> findOrderedTicketInfo(List<Long> ticketIds) {
+        //  TODO : 페이징처리 필요
+        if (ticketIds == null || ticketIds.isEmpty()) {
+            return List.of();
+        }
+        return ticketRepository.findTicketInfoByTicketIds(ticketIds);
     }
 
     @Override
