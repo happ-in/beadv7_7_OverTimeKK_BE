@@ -1,6 +1,8 @@
 package com.programmers.kdt.order.dto;
 
+import java.util.List;
+
 public record OrderTicketRequest(
-        Long userId
+        List<Long> ticketIds
 ) {
 }
