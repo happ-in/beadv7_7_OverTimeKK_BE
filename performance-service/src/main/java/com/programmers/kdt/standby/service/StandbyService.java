@@ -174,7 +174,7 @@ public class StandbyService {
             Long ticketId = standby.getTicketId();
             PerformanceSession session = standby.getPerformanceSession();
 
-            standby.cancel();
+            standby.cancelZone(matchedZone);
             matchNextCandidate(session, matchedZone, ticketId);
         }
         return expiredStandbys.size();
