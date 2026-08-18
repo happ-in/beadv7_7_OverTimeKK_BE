@@ -8,7 +8,7 @@ public record ValidateTicketRequest(
         Long price,
         String holdKey
 ) {
-    public static ValidateTicketRequest from(CreateOrderRequest request){
-        return new ValidateTicketRequest(request.ticketId(), request.userId(), request.price(), request.holdKey());
+    public static ValidateTicketRequest from(CreateOrderRequest request, Long userId){
+        return new ValidateTicketRequest(request.ticketId(), userId, request.price(), request.holdKey());
     }
 }
