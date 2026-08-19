@@ -16,7 +16,7 @@ public interface TicketService {
 
     void standbyTicket(StandbyTicketEvent event);
 
-    List<OrderTicketResponse> findOrderedTicketInfo(Long userId);
+    List<OrderTicketResponse> findOrderedTicketInfo(List<Long> ticketIds);
 
     TicketZonesResponse getTicketZone(TicketZoneRequest request);
 }

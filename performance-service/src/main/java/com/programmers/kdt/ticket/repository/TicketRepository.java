@@ -78,11 +78,10 @@ select p.performanceId
     @Query("""
            select new com.programmers.kdt.ticket.dto.OrderTicketResponse(t.ticketId, p.title, t.zone)
              from Ticket t, Performance p
-            where t.buyUserId = :userId
+            where t.ticketId in :ticketIds
               and t.performanceId = p.performanceId
-           order by p.endDate desc
            """)
-    List<OrderTicketResponse> findTicketsByBuyUserId(@Param("userId") Long userId);
+    List<OrderTicketResponse> findTicketInfoByTicketIds(@Param("ticketIds") List<Long> ticketIds);
 
     @Query("""
             select new com.programmers.kdt.ticket.dto.TicketZoneResponse(t.ticketId, t.seatRow, t.seatNum, t.ticketStatus)

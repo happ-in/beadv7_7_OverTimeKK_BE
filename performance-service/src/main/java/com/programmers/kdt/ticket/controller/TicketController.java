@@ -77,7 +77,7 @@ public class TicketController {
 
     @PostMapping("/orders")
     public ApiResponse<List<OrderTicketResponse>> orderTickets(@Valid @RequestBody OrderTicketRequest request) {
-        return ApiResponse.success(ticketService.findOrderedTicketInfo(request.userId()));
+        return ApiResponse.success(ticketService.findOrderedTicketInfo(request.ticketIds()));
     }
 
     @PostMapping("/select/seat")

@@ -10,9 +10,6 @@ public record CreateOrderRequest(
         Long ticketId,
 
         @NotNull
-        Long userId,
-
-        @NotNull
         Long price,
 
         @NotNull

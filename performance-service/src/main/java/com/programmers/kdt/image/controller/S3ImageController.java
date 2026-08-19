@@ -1,5 +1,6 @@
 package com.programmers.kdt.image.controller;
 
+import com.programmers.kdt.common.response.ApiResponse;
 import com.programmers.kdt.image.dto.ImgUploadUrlRequest;
 import com.programmers.kdt.image.dto.ImgUploadUrlResponse;
 import com.programmers.kdt.image.service.S3ImageService;
@@ -17,7 +18,8 @@ public class S3ImageController {
     private final S3ImageService s3ImageService;
 
     @PostMapping("/upload-url")
-    public ImgUploadUrlResponse createUploadUrl(@RequestBody ImgUploadUrlRequest request) {
-        return s3ImageService.createUploadUrl(request.fileName(), request.contentType());
+    public ApiResponse<ImgUploadUrlResponse> createUploadUrl(@RequestBody ImgUploadUrlRequest request) {
+        ImgUploadUrlResponse uploadUrl = s3ImageService.createUploadUrl(request.fileName(), request.contentType(), request.fileSize());
+        return ApiResponse.success(uploadUrl);
     }
 }

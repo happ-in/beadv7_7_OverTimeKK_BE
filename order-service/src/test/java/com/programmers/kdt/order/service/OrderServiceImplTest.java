@@ -18,7 +18,6 @@ import com.programmers.kdt.order.event.TicketCancelRequestEvent;
 import com.programmers.kdt.order.event.TicketReleaseRequestEvent;
 import com.programmers.kdt.order.exception.OrderErrorCode;
 import com.programmers.kdt.order.repository.OrderRepository;
-import com.programmers.kdt.payment.dto.RefundPaymentRequest;
 import com.programmers.kdt.payment.service.PaymentService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -38,10 +37,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class OrderServiceImplTest {
@@ -82,7 +78,7 @@ class OrderServiceImplTest {
         void success() {
             LocalDateTime expiredAt = LocalDateTime.now().plusMinutes(10);
             CreateOrderRequest request = new CreateOrderRequest(
-                    TICKET_ID, USER_ID, PRICE, expiredAt, HOLD_KEY
+                    TICKET_ID, PRICE, expiredAt, HOLD_KEY
             );
             when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
                 Order order = invocation.getArgument(0);
@@ -90,7 +86,7 @@ class OrderServiceImplTest {
                 return order;
             });
 
-            CreateOrderResponse response = orderService.createOrder(request);
+            CreateOrderResponse response = orderService.createOrder(request, USER_ID);
 
             assertThat(response.orderId()).isEqualTo(ORDER_ID);
             assertThat(response.orderStatus()).isEqualTo(OrderStatus.PENDING.name());
@@ -118,13 +114,13 @@ class OrderServiceImplTest {
         @DisplayName("티켓 검증에 실패하면 주문을 저장하지 않는다")
         void ticketValidationFailure() {
             CreateOrderRequest request = new CreateOrderRequest(
-                    TICKET_ID, USER_ID, PRICE, LocalDateTime.now().plusMinutes(10), HOLD_KEY
+                    TICKET_ID, PRICE, LocalDateTime.now().plusMinutes(10), HOLD_KEY
             );
             BusinessException exception = new BusinessException(OrderErrorCode.TICKET_VALIDATION_FAILED);
             org.mockito.Mockito.doThrow(exception)
                     .when(ticketClient).validateTicket(any(ValidateTicketRequest.class));
 
-            assertThatThrownBy(() -> orderService.createOrder(request)).isSameAs(exception);
+            assertThatThrownBy(() -> orderService.createOrder(request, USER_ID)).isSameAs(exception);
 
             verify(orderRepository, never()).save(any());
         }
@@ -136,7 +132,7 @@ class OrderServiceImplTest {
         Order order = pendingOrder();
         when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
 
-        CancelOrderResponse response = orderService.cancelPendingOrder(ORDER_ID);
+        CancelOrderResponse response = orderService.cancelPendingOrder(ORDER_ID, USER_ID);
 
         assertThat(response.orderStatus()).isEqualTo(OrderStatus.CANCELLED.name());
         assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CANCELLED);
@@ -235,7 +231,7 @@ class OrderServiceImplTest {
         when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
 
         CancelOrderResponse response = orderService.cancelCompletedOrder(
-                ORDER_ID, new CancelOrderRequest("단순 변심")
+                ORDER_ID, USER_ID, new CancelOrderRequest("단순 변심")
         );
 
         assertThat(response.orderStatus()).isEqualTo(OrderStatus.CANCELLED.name());
@@ -253,35 +249,48 @@ class OrderServiceImplTest {
     class GetOrderHistory {
 
         @Test
-        @DisplayName("완료 주문과 티켓 정보를 조합해 최신 주문 내역을 반환한다")
+        @DisplayName("완료/취소/만료 주문과 티켓 정보를 조합해 최신 주문 내역을 반환한다")
         void success() {
             LocalDateTime createdAt = LocalDateTime.of(2026, 8, 11, 12, 0);
-            Order order = completedOrder();
-            ReflectionTestUtils.setField(order, "createdAt", createdAt);
-            when(orderRepository.findByUserIdAndOrderStatusOrderByCreatedAtDesc(
-                    USER_ID, OrderStatus.COMPLETED
-            )).thenReturn(List.of(order));
-            when(ticketClient.getTickets(new OrderTicketRequest(USER_ID))).thenReturn(
-                    List.of(new TicketInfo(TICKET_ID, "오버타임 콘서트", "VIP"))
-            );
+            Order completed = completedOrder();
+            Order cancelled = cancelledOrder();
+            Order expired = expiredOrder();
+            ReflectionTestUtils.setField(completed, "createdAt", createdAt);
+            when(orderRepository.findByUserIdAndOrderStatusInOrderByCreatedAtDesc(
+                    USER_ID, List.of(OrderStatus.CANCELLED, OrderStatus.COMPLETED, OrderStatus.EXPIRED)
+            )).thenReturn(List.of(completed, cancelled, expired));
+            when(ticketClient.getTickets(new OrderTicketRequest(List.of(TICKET_ID, 200L, 300L))))
+                    .thenReturn(List.of(
+                            new TicketInfo(TICKET_ID, "오버타임 콘서트", "VIP"),
+                            new TicketInfo(200L, "오버타임 콘서트", "R"),
+                            new TicketInfo(300L, "오버타임 콘서트", "A")
+                    ));
 
             List<GetOrderHistoryResponse> responses = orderService.getOrderHistory(USER_ID);
 
-            assertThat(responses).singleElement().satisfies(response -> {
+            assertThat(responses).hasSize(3);
+            assertThat(responses.getFirst()).satisfies(response -> {
                 assertThat(response.orderId()).isEqualTo(ORDER_ID);
+                assertThat(response.orderStatus()).isEqualTo(OrderStatus.COMPLETED.name());
                 assertThat(response.performanceName()).isEqualTo("오버타임 콘서트");
                 assertThat(response.orderedAt()).isEqualTo(createdAt);
                 assertThat(response.zone()).isEqualTo("VIP");
                 assertThat(response.quantity()).isEqualTo(1);
                 assertThat(response.totalAmount()).isEqualTo(PRICE);
             });
+            assertThat(responses).extracting(GetOrderHistoryResponse::orderStatus)
+                    .containsExactly(
+                            OrderStatus.COMPLETED.name(),
+                            OrderStatus.CANCELLED.name(),
+                            OrderStatus.EXPIRED.name()
+                    );
         }
 
         @Test
-        @DisplayName("완료 주문이 없으면 티켓 정보를 조회하지 않고 빈 목록을 반환한다")
+        @DisplayName("조회 대상 주문이 없으면 티켓 정보를 조회하지 않고 빈 목록을 반환한다")
         void empty() {
-            when(orderRepository.findByUserIdAndOrderStatusOrderByCreatedAtDesc(
-                    USER_ID, OrderStatus.COMPLETED
+            when(orderRepository.findByUserIdAndOrderStatusInOrderByCreatedAtDesc(
+                    USER_ID, List.of(OrderStatus.CANCELLED, OrderStatus.COMPLETED, OrderStatus.EXPIRED)
             )).thenReturn(List.of());
 
             assertThat(orderService.getOrderHistory(USER_ID)).isEmpty();
@@ -293,10 +302,10 @@ class OrderServiceImplTest {
         @DisplayName("주문에 대응하는 티켓 정보가 없으면 예외가 발생한다")
         void ticketInfoNotFound() {
             Order order = completedOrder();
-            when(orderRepository.findByUserIdAndOrderStatusOrderByCreatedAtDesc(
-                    USER_ID, OrderStatus.COMPLETED
+            when(orderRepository.findByUserIdAndOrderStatusInOrderByCreatedAtDesc(
+                    USER_ID, List.of(OrderStatus.CANCELLED, OrderStatus.COMPLETED, OrderStatus.EXPIRED)
             )).thenReturn(List.of(order));
-            when(ticketClient.getTickets(new OrderTicketRequest(USER_ID))).thenReturn(List.of());
+            when(ticketClient.getTickets(new OrderTicketRequest(List.of(TICKET_ID)))).thenReturn(List.of());
 
             assertBusinessException(
                     () -> orderService.getOrderHistory(USER_ID),
@@ -322,7 +331,7 @@ class OrderServiceImplTest {
         when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.empty());
 
         assertBusinessException(
-                () -> orderService.cancelPendingOrder(ORDER_ID),
+                () -> orderService.cancelPendingOrder(ORDER_ID, USER_ID),
                 OrderErrorCode.ORDER_NOT_FOUND
         );
         verifyNoInteractions(eventPublisher);
@@ -361,6 +370,18 @@ class OrderServiceImplTest {
     private Order completedOrder() {
         Order order = paymentStartedOrder();
         order.complete();
+        return order;
+    }
+
+    private Order cancelledOrder() {
+        Order order = pendingOrder(2L, 200L, "cancel-hold-key");
+        order.cancelPending();
+        return order;
+    }
+
+    private Order expiredOrder() {
+        Order order = pendingOrder(3L, 300L, "expire-hold-key");
+        order.expire();
         return order;
     }
 
