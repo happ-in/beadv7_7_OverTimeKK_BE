@@ -42,7 +42,7 @@ public class ChangeTicketStatusServiceImpl implements ChangeTicketStatusService 
     @Override
     @Transactional
     public CheckTicketHoldAvailableResponse checkTicketHoldStatus(CheckTicketHoldAvailableRequest request) {
-        Ticket ticket = getTicket(request.ticketId());
+        Ticket ticket = getTicketLock(request.ticketId());
         LocalDateTime holdExpiredAt = LocalDateTime.now().plusMinutes(TimeLimits.orderHoldTicket5Min);
         String holdKey = TicketKeyGenerator.generate();
 
@@ -201,6 +201,11 @@ public class ChangeTicketStatusServiceImpl implements ChangeTicketStatusService 
 
     private @NonNull Ticket getTicket(Long ticketId) {
         return ticketRepository.findById(ticketId)
+                .orElseThrow(() -> new BusinessException(TicketErrorCode.TICKET_NOT_FOUND));
+    }
+
+    private Ticket getTicketLock(Long ticketId) {
+        return ticketRepository.findByIdForUpdate(ticketId)
                 .orElseThrow(() -> new BusinessException(TicketErrorCode.TICKET_NOT_FOUND));
     }
 }
