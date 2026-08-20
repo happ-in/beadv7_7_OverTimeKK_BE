@@ -21,6 +21,7 @@ import com.programmers.kdt.venue.repository.HallRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -41,6 +42,7 @@ public class FindPerformanceServiceImpl implements FindPerformanceService {
     private final HallRepository hallRepository;
     private final S3ImageService imageService;
 
+    @Cacheable(value = "performanceList", key = "'all'")
     @Override
     public FindPerformancesResponse findPerformances(PerformanceStatus status, int page) {
         if (page <= 0) {
