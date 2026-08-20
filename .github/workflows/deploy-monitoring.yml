@@ -1,0 +1,53 @@
+name: Deploy Monitoring
+
+# 앱 배포(deploy-backend.yml, 버전 태그 트리거)와 완전히 독립.
+# 모니터링 설정(observability/, observability-compose.deploy.yaml)이 바뀔 때만 EC2#2로 배포.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "observability/**"
+      - "observability-compose.deploy.yaml"
+      - ".github/workflows/deploy-monitoring.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fill in APP_PRIVATE_IP for Prometheus scrape targets
+        run: |
+          sed "s/APP_PRIVATE_IP_PLACEHOLDER/${{ secrets.APP_PRIVATE_IP }}/g" \
+            observability/prometheus/prometheus.deploy.yml > observability/prometheus/prometheus.deploy.yml.tmp
+          mv observability/prometheus/prometheus.deploy.yml.tmp observability/prometheus/prometheus.deploy.yml
+
+      - name: Create .env file
+        run: |
+          cat <<EOF > .env
+          GRAFANA_ADMIN_USER=${{ secrets.GRAFANA_ADMIN_USER }}
+          GRAFANA_ADMIN_PASSWORD=${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+          EOF
+
+      - name: Copy deploy files to EC2#2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.MONITORING_HOST }}
+          username: ${{ secrets.MONITORING_USER }}
+          key: ${{ secrets.MONITORING_SSH_KEY }}
+          source: "observability-compose.deploy.yaml,observability,.env"
+          target: "/home/ubuntu/reseat-monitoring-deploy"
+          overwrite: true
+
+      - name: Pull and restart containers on EC2#2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.MONITORING_HOST }}
+          username: ${{ secrets.MONITORING_USER }}
+          key: ${{ secrets.MONITORING_SSH_KEY }}
+          script: |
+            cd /home/ubuntu/reseat-monitoring-deploy
+            docker compose -f observability-compose.deploy.yaml --env-file .env pull
+            docker compose -f observability-compose.deploy.yaml --env-file .env up -d
+            docker image prune -f

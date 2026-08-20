@@ -1,0 +1,74 @@
+# EC2#2(모니터링) 배포용 compose 파일. 로컬 개발용 observability-compose.yaml과는 별개.
+# promtail은 여기 없음 - EC2#1(앱 인스턴스)의 docker-compose.deploy.yml 쪽에서 상주하며 이 서버의 Loki로 push함.
+# 실행: docker compose -f observability-compose.deploy.yaml --env-file .env up -d
+
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: kdt-prometheus
+    volumes:
+      - ./observability/prometheus/prometheus.deploy.yml:/etc/prometheus/prometheus.yml:ro
+      - observability-prometheus-data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    restart: unless-stopped
+    networks:
+      - observability-net
+    # 9090 호스트로 노출 안 함 - Grafana만 datasource로 내부 접근
+
+  loki:
+    image: grafana/loki:latest
+    container_name: kdt-loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - observability-loki-data:/loki
+    restart: unless-stopped
+    networks:
+      - observability-net
+    # EC2#1의 promtail이 push하는 포트 - SG에서 EC2#1만 허용
+
+  tempo:
+    image: grafana/tempo:2.7.2
+    container_name: kdt-tempo
+    ports:
+      - "4317:4317"   # OTLP gRPC (현재 앱은 미사용, 향후 대비)
+      - "4318:4318"   # OTLP HTTP (앱이 실제로 push하는 포트)
+    volumes:
+      - ./observability/tempo/tempo.yaml:/etc/tempo.yaml:ro
+      - observability-tempo-data:/var/tempo
+    command: -config.file=/etc/tempo.yaml
+    restart: unless-stopped
+    networks:
+      - observability-net
+    # 4317/4318 - SG에서 EC2#1만 허용. 3200(query)은 Grafana만 내부 접근하므로 미노출
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: kdt-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - observability-grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+    restart: unless-stopped
+    networks:
+      - observability-net
+    # 3000 - SG에서 팀 IP만 허용 (추후 nginx+TLS 경유로 전환 예정)
+
+networks:
+  observability-net:
+    driver: bridge
+
+volumes:
+  observability-prometheus-data:
+  observability-loki-data:
+  observability-tempo-data:
+  observability-grafana-data:
