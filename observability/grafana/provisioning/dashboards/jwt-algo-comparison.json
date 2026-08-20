@@ -2,7 +2,7 @@
   "title": "JWT Algorithm Load Test (HS384 vs RS256)",
   "uid": "jwt-algo-comparison",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "editable": true,
   "timezone": "browser",
   "time": { "from": "now-6h", "to": "now" },
@@ -14,7 +14,7 @@
         "name": "algo",
         "type": "query",
         "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
-        "query": { "query": "label_values(k6_http_req_duration_p95, algo)", "refId": "algoVar" },
+        "query": { "query": "label_values(k6_http_reqs_total, algo)", "refId": "algoVar" },
         "includeAll": true,
         "multi": true,
         "current": { "text": "All", "value": "$__all" },
@@ -25,7 +25,7 @@
         "name": "phase",
         "type": "query",
         "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
-        "query": { "query": "label_values(k6_http_req_duration_p95, phase)", "refId": "phaseVar" },
+        "query": { "query": "label_values(k6_http_reqs_total, phase)", "refId": "phaseVar" },
         "includeAll": true,
         "multi": true,
         "current": { "text": "All", "value": "$__all" },
@@ -38,177 +38,164 @@
     {
       "id": 1,
       "type": "row",
-      "title": "실패율 — VU 스테이지별 (몇 명부터 터지는지)",
+      "title": "병목 변곡점 — 처리량이 꺾이고 지연시간이 튀는 VU는 몇 명인가",
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
       "collapsed": false
     },
     {
       "id": 2,
       "type": "timeseries",
-      "title": "실패율(%) 시간 추이 — VU 스테이지가 순차 진행되므로 계단식으로 표시됨",
+      "title": "처리량 (req/s, 성공+실패 전체) — algo/phase별",
       "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
-      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 1 },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 1 },
       "targets": [
         {
-          "expr": "k6_http_req_failed_rate{algo=~\"$algo\", phase=~\"$phase\"} * 100",
+          "expr": "sum by (algo, phase, vus) (rate(k6_http_reqs_total{algo=~\"$algo\", phase=~\"$phase\"}[30s]))",
+          "legendFormat": "{{algo}} / {{phase}} / vus={{vus}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "fillOpacity": 12 } }, "overrides": [] },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["max"] } }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "p95 응답시간 (ms, 성공 응답만) — 1000ms 기준선",
+      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 1 },
+      "targets": [
+        {
+          "expr": "sum by (algo, phase, vus) (avg_over_time(k6_http_req_duration_p95{algo=~\"$algo\", phase=~\"$phase\", status=\"200\"}[30s]))",
           "legendFormat": "{{algo}} / {{phase}} / vus={{vus}}",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
-          "min": 0,
-          "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "spanNulls": false, "fillOpacity": 10 },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "red", "value": 5 }
-            ]
-          },
-          "custom.thresholdsStyle": { "mode": "line" }
+          "unit": "ms",
+          "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "fillOpacity": 12, "thresholdsStyle": { "mode": "line" } },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1000 } ] }
         },
         "overrides": []
       },
       "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["max"] } }
     },
     {
-      "id": 3,
+      "id": 4,
       "type": "table",
-      "title": "VU 스테이지별 실패율(%) — 알고리즘/phase별 정리",
+      "title": "VU 단계별 처리량 · 응답시간 정리 — 어디서 변곡점이 생기는지",
+      "description": "처리량은 전체 요청(성공+실패) 기준, p95/p99는 성공(200) 응답만 기준. p95 1000ms 초과 구간이 빨간색.",
       "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
-      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 10 },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 10 },
       "targets": [
         {
-          "expr": "max by (algo, phase, vus) (max_over_time(k6_http_req_failed_rate{algo=~\"$algo\", phase=~\"$phase\"}[$__range])) * 100",
+          "expr": "max by (algo, phase, vus) (max_over_time(k6_http_req_duration_p95{algo=~\"$algo\", phase=~\"$phase\", status=\"200\"}[$__range]))",
           "format": "table",
           "instant": true,
           "refId": "A"
+        },
+        {
+          "expr": "max by (algo, phase, vus) (max_over_time(k6_http_req_duration_p99{algo=~\"$algo\", phase=~\"$phase\", status=\"200\"}[$__range]))",
+          "format": "table",
+          "instant": true,
+          "refId": "B"
+        },
+        {
+          "expr": "max by (algo, phase, vus) (max_over_time((sum by (algo, phase, vus) (rate(k6_http_reqs_total{algo=~\"$algo\", phase=~\"$phase\"}[30s])))[$__range:30s]))",
+          "format": "table",
+          "instant": true,
+          "refId": "C"
         }
       ],
       "transformations": [
-        { "id": "organize", "options": { "excludeByName": { "Time": true }, "renameByName": { "Value": "실패율(%)" } } },
+        { "id": "merge", "options": {} },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true },
+            "renameByName": { "Value #A": "p95(ms)", "Value #B": "p99(ms)", "Value #C": "처리량(req/s)" }
+          }
+        },
         { "id": "convertFieldType", "options": { "conversions": [{ "targetField": "vus", "destinationType": "number" }], "fields": {} } }
       ],
       "fieldConfig": {
-        "defaults": {
-          "custom": { "align": "auto" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "red", "value": 5 }
-            ]
-          }
-        },
+        "defaults": { "custom": { "align": "auto" } },
         "overrides": [
-          { "matcher": { "id": "byName", "options": "실패율(%)" }, "properties": [{ "id": "custom.cellOptions", "value": { "type": "color-background" } }] }
+          {
+            "matcher": { "id": "byName", "options": "p95(ms)" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-background" } },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [ { "color": "rgba(50,150,90,0.5)", "value": null }, { "color": "rgba(200,60,50,0.6)", "value": 1000 } ] } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "처리량(req/s)" },
+            "properties": [ { "id": "custom.cellOptions", "value": { "type": "gradient-gauge" } }, { "id": "max", "value": 200 } ]
+          }
         ]
       },
       "options": { "sortBy": [{ "displayName": "phase", "desc": false }, { "displayName": "algo", "desc": false }, { "displayName": "vus", "desc": false }] }
     },
     {
-      "id": 4,
+      "id": 20,
       "type": "row",
-      "title": "응답시간 — HS384 vs RS256 비교",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 19 },
-      "collapsed": false
-    },
-    {
-      "id": 5,
-      "type": "timeseries",
-      "title": "p95 응답시간 (ms)",
-      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 20 },
-      "targets": [
+      "title": "실패율 — 참고 (몇 명부터 아예 응답을 못 받는지)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 },
+      "collapsed": true,
+      "panels": [
         {
-          "expr": "k6_http_req_duration_p95{algo=~\"$algo\", phase=~\"$phase\"}",
-          "legendFormat": "{{algo}} / {{phase}} / vus={{vus}}",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": { "defaults": { "unit": "ms", "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "fillOpacity": 10 } }, "overrides": [] },
-      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["max"] } }
-    },
-    {
-      "id": 6,
-      "type": "timeseries",
-      "title": "p99 응답시간 (ms)",
-      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
-      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 20 },
-      "targets": [
+          "id": 21,
+          "type": "timeseries",
+          "title": "실패율(%) 시간 추이",
+          "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+          "gridPos": { "h": 9, "w": 24, "x": 0, "y": 23 },
+          "targets": [
+            {
+              "expr": "100 * sum by (algo, phase, vus) (rate(k6_http_reqs_total{algo=~\"$algo\", phase=~\"$phase\", status!=\"200\"}[30s])) / sum by (algo, phase, vus) (rate(k6_http_reqs_total{algo=~\"$algo\", phase=~\"$phase\"}[30s]))",
+              "legendFormat": "{{algo}} / {{phase}} / vus={{vus}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent", "min": 0, "max": 100,
+              "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "spanNulls": false, "fillOpacity": 10 }
+            },
+            "overrides": []
+          },
+          "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["max"] } }
+        },
         {
-          "expr": "k6_http_req_duration_p99{algo=~\"$algo\", phase=~\"$phase\"}",
-          "legendFormat": "{{algo}} / {{phase}} / vus={{vus}}",
-          "refId": "A"
+          "id": 22,
+          "type": "table",
+          "title": "VU 단계별 실패율(%) 정리",
+          "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+          "gridPos": { "h": 9, "w": 24, "x": 0, "y": 32 },
+          "targets": [
+            {
+              "expr": "max by (algo, phase, vus) (max_over_time((100 * sum by (algo, phase, vus) (rate(k6_http_reqs_total{algo=~\"$algo\", phase=~\"$phase\", status!=\"200\"}[30s])) / sum by (algo, phase, vus) (rate(k6_http_reqs_total{algo=~\"$algo\", phase=~\"$phase\"}[30s])))[$__range:30s]))",
+              "format": "table",
+              "instant": true,
+              "refId": "A"
+            }
+          ],
+          "transformations": [
+            { "id": "organize", "options": { "excludeByName": { "Time": true }, "renameByName": { "Value": "실패율(%)" } } },
+            { "id": "convertFieldType", "options": { "conversions": [{ "targetField": "vus", "destinationType": "number" }], "fields": {} } }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": { "align": "auto" },
+              "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 5 } ] }
+            },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "실패율(%)" }, "properties": [{ "id": "custom.cellOptions", "value": { "type": "color-background" } }] }
+            ]
+          },
+          "options": { "sortBy": [{ "displayName": "phase", "desc": false }, { "displayName": "algo", "desc": false }, { "displayName": "vus", "desc": false }] }
         }
-      ],
-      "fieldConfig": { "defaults": { "unit": "ms", "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "fillOpacity": 10 } }, "overrides": [] },
-      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["max"] } }
-    },
-    {
-      "id": 7,
-      "type": "table",
-      "title": "VU 스테이지별 p95 응답시간(ms) — 알고리즘/phase별 정리",
-      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 29 },
-      "targets": [
-        {
-          "expr": "max by (algo, phase, vus) (max_over_time(k6_http_req_duration_p95{algo=~\"$algo\", phase=~\"$phase\"}[$__range]))",
-          "format": "table",
-          "instant": true,
-          "refId": "A"
-        }
-      ],
-      "transformations": [
-        { "id": "organize", "options": { "excludeByName": { "Time": true }, "renameByName": { "Value": "p95(ms)" } } },
-        { "id": "convertFieldType", "options": { "conversions": [{ "targetField": "vus", "destinationType": "number" }], "fields": {} } }
-      ],
-      "options": { "sortBy": [{ "displayName": "phase", "desc": false }, { "displayName": "algo", "desc": false }, { "displayName": "vus", "desc": false }] }
-    },
-    {
-      "id": 8,
-      "type": "table",
-      "title": "VU 스테이지별 p99 응답시간(ms) — 알고리즘/phase별 정리",
-      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
-      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 29 },
-      "targets": [
-        {
-          "expr": "max by (algo, phase, vus) (max_over_time(k6_http_req_duration_p99{algo=~\"$algo\", phase=~\"$phase\"}[$__range]))",
-          "format": "table",
-          "instant": true,
-          "refId": "A"
-        }
-      ],
-      "transformations": [
-        { "id": "organize", "options": { "excludeByName": { "Time": true }, "renameByName": { "Value": "p99(ms)" } } },
-        { "id": "convertFieldType", "options": { "conversions": [{ "targetField": "vus", "destinationType": "number" }], "fields": {} } }
-      ],
-      "options": { "sortBy": [{ "displayName": "phase", "desc": false }, { "displayName": "algo", "desc": false }, { "displayName": "vus", "desc": false }] }
-    },
-    {
-      "id": 9,
-      "type": "row",
-      "title": "처리량",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 38 },
-      "collapsed": false
-    },
-    {
-      "id": 10,
-      "type": "timeseries",
-      "title": "처리량 (req/s) — algo/phase별",
-      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
-      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 39 },
-      "targets": [
-        {
-          "expr": "sum by (algo, phase) (rate(k6_http_reqs_total{algo=~\"$algo\", phase=~\"$phase\"}[30s]))",
-          "legendFormat": "{{algo}} / {{phase}}",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
-      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["max"] } }
+      ]
     }
   ]
 }
