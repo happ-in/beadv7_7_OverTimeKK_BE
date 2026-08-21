@@ -34,11 +34,11 @@ public class PerformanceV2Service {
         // 3. 좌석 등급별 금액 등록
         publisher.publishEvent(new PerformanceSeatPriceRegisterEvent(performance, request.seatPriceRequests()));
 
-        // 4. Ticket
-        publisher.publishEvent(new TicketIssueEvent(performance.getPerformanceId(), TicketStatus.AVAILABLE));
-
-        // 5. 캐시삭제
+        // 4. 캐시삭제
         publisher.publishEvent(new PerformanceCacheEvictEvent("performanceList", "all"));
+
+        // 5. Ticket
+        publisher.publishEvent(new TicketIssueEvent(performance.getPerformanceId(), TicketStatus.AVAILABLE));
     }
 
     @Transactional
