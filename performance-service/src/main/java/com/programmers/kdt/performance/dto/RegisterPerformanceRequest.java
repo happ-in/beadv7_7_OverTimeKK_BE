@@ -9,13 +9,12 @@ import com.programmers.kdt.performance.entity.PerformanceSession;
 import java.util.List;
 
 public record RegisterPerformanceRequest(
-        Long userId,
         PerformanceV2Request performanceRequest,
         List<RegisterPerformanceSessionRequest> sessionRequests,
         List<PerformanceSeatPriceRequest> seatPriceRequests
 ) {
-    public Performance toPerformance() {
-        return performanceRequest.toPerformance(userId);
+    public Performance toPerformance(Long sellerId) {
+        return performanceRequest.toPerformance(sellerId);
     }
 
     public List<PerformanceSession> toSessions(Performance performance) {

@@ -41,14 +41,14 @@ public class ChangeTicketStatusServiceImpl implements ChangeTicketStatusService 
 
     @Override
     @Transactional
-    public CheckTicketHoldAvailableResponse checkTicketHoldStatus(CheckTicketHoldAvailableRequest request) {
+    public CheckTicketHoldAvailableResponse checkTicketHoldStatus(CheckTicketHoldAvailableRequest request, Long userId) {
         Ticket ticket = getTicketLock(request.ticketId());
         LocalDateTime holdExpiredAt = LocalDateTime.now().plusMinutes(TimeLimits.orderHoldTicket5Min);
         String holdKey = TicketKeyGenerator.generate();
 
-        validateTicketConditionForHold(request.orderType(), ticket, request.userId());
+        validateTicketConditionForHold(request.orderType(), ticket, userId);
 
-        ticket.holdTicket(request.userId(), holdExpiredAt, holdKey);
+        ticket.holdTicket(userId, holdExpiredAt, holdKey);
         return new CheckTicketHoldAvailableResponse(ticket.getTicketId(), ticket.getPrice(), holdExpiredAt, holdKey);
     }
 
