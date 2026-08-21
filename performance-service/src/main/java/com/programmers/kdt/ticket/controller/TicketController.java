@@ -13,7 +13,9 @@ import com.programmers.kdt.ticket.dto.SessionStartDateResponse;
 import com.programmers.kdt.ticket.dto.TicketZoneRequest;
 import com.programmers.kdt.ticket.dto.TicketZonesResponse;
 import com.programmers.kdt.ticket.dto.ValidateTicketHoldRequest;
-import com.programmers.kdt.ticket.service.ChangeTicketStatusService;
+import com.programmers.kdt.ticket.service.TicketHoldService;
+import com.programmers.kdt.ticket.service.TicketReleaseService;
+import com.programmers.kdt.ticket.service.TicketReserveService;
 import com.programmers.kdt.ticket.service.TicketService;
 import com.programmers.kdt.ticket.service.ValidateTicketHoldService;
 import jakarta.validation.Valid;
@@ -24,7 +26,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -37,12 +38,14 @@ import java.util.List;
 public class TicketController {
 
     private final TicketService ticketService;
-    private final ChangeTicketStatusService changeTicketStatusService;
+    private final TicketHoldService ticketHoldService;
+    private final TicketReleaseService ticketReleaseService;
+    private final TicketReserveService ticketReserveService;
     private final ValidateTicketHoldService validateTicketHoldService;
 
     @PostMapping("/standby")
     public CreateStandbyResponse issueStandby(
-            @RequestHeader("X-User-Id") Long userId, @RequestParam Long sessionNum, @RequestParam String zone) {
+            @RequestParam Long userId, @RequestParam Long sessionNum, @RequestParam String zone) {
         return ticketService.issueStandby(userId, sessionNum, zone);
     }
 
@@ -53,28 +56,26 @@ public class TicketController {
     }
 
     @PutMapping("/status/hold")
-    public ApiResponse<CheckTicketHoldAvailableResponse> checkTicketHoldAvailable(
-            @Valid @RequestBody CheckTicketHoldAvailableRequest request,
-            @RequestHeader("X-User-Id") Long userId) {
-        CheckTicketHoldAvailableResponse response = changeTicketStatusService.checkTicketHoldStatus(request, userId);
+    public ApiResponse<CheckTicketHoldAvailableResponse> checkTicketHoldAvailable(@Valid @RequestBody CheckTicketHoldAvailableRequest request) {
+        CheckTicketHoldAvailableResponse response = ticketHoldService.checkTicketHoldStatus(request);
         return ApiResponse.success(response);
     }
 
     @PutMapping("/status/release")
     public ApiResponse<?> releaseHoldTicket(@Valid @RequestBody ReleaseTicketHoldRequest request) {
-        changeTicketStatusService.releaseHoldTicket(request);
+        ticketReleaseService.releaseHoldTicket(request);
         return ApiResponse.success(null);
     }
 
     @PutMapping("/status/canceled/release")
     public ApiResponse<?> releaseCanceledTicket(@Valid @RequestBody CancelTicketStatusRequest request) {
-        changeTicketStatusService.cancelReservedTicket(request);
+        ticketReleaseService.cancelReservedTicket(request);
         return ApiResponse.success(null);
     }
 
     @PutMapping("/status/reserved")
     public ApiResponse<?> reservedTicket(@Valid @RequestBody ReservedTicketRequest request) {
-        changeTicketStatusService.reservedTicket(request);
+        ticketReserveService.reservedTicket(request);
         return ApiResponse.success(null);
     }
 

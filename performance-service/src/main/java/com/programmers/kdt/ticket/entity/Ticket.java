@@ -1,6 +1,8 @@
 package com.programmers.kdt.ticket.entity;
 
 import com.programmers.kdt.common.entity.BaseTimeEntity;
+import com.programmers.kdt.common.exception.BusinessException;
+import com.programmers.kdt.ticket.exception.TicketErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -91,6 +93,7 @@ public class Ticket extends BaseTimeEntity {
     }
 
     public void standbyTicket(Long standbyUserId, LocalDateTime standbyExpiredAt) {
+        this.ticketStatus = TicketStatus.CANCELED;
         this.standbyUserId = standbyUserId;
         this.standbyExpiredAt = standbyExpiredAt;
     }
@@ -101,14 +104,40 @@ public class Ticket extends BaseTimeEntity {
         this.standbyUserId = null;
     }
 
-    public void releaseToStandby() {
-        this.ticketStatus = TicketStatus.CANCELED;
-        this.buyUserId = null;
-        this.standbyUserId = null;
-    }
-
     public void reservedTicket(Long buyUserId) {
         this.ticketStatus = TicketStatus.RESERVED;
         this.buyUserId = buyUserId;
+    }
+
+    public void validateHoldStatus() {
+        if (this.ticketStatus != TicketStatus.HOLD) {
+            throw new BusinessException(TicketErrorCode.TICKET_IS_NOT_HELD);
+        }
+    }
+
+    public void validateAvailableStatus() {
+        if (this.ticketStatus != TicketStatus.AVAILABLE) {
+            throw new BusinessException(TicketErrorCode.IMPOSSIBLE_HOLD_TICKET);
+        }
+    }
+
+    public void validateStandbyStatus(Long userId) {
+        boolean isStandbyTicket = this.ticketStatus == TicketStatus.CANCELED
+                && userId.equals(this.standbyUserId)
+                && LocalDateTime.now().isBefore(this.standbyExpiredAt);
+
+        if (!isStandbyTicket) {
+            throw new BusinessException(TicketErrorCode.STANDBY_TICKET_DISCREPANCY);
+        }
+    }
+
+    public void validateReservedStatus(Long userId) {
+        if (this.ticketStatus != TicketStatus.RESERVED) {
+            throw new BusinessException(TicketErrorCode.NOT_RESERVED_TICKET);
+        }
+
+        if (!userId.equals(this.buyUserId)) {
+            throw new BusinessException(TicketErrorCode.TICKET_OWNER_DISCREPANCY);
+        }
     }
 }

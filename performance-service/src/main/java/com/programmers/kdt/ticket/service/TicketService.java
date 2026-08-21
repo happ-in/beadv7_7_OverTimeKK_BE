@@ -19,4 +19,6 @@ public interface TicketService {
     List<OrderTicketResponse> findOrderedTicketInfo(List<Long> ticketIds);
 
     TicketZonesResponse getTicketZone(TicketZoneRequest request);
+
+    List<Long> findExpiredHoldTicketIds();
 }
