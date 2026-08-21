@@ -24,7 +24,10 @@ import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.programmers.kdt.ticket.entity.TicketStatus;
+
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -75,6 +78,14 @@ public class TicketServiceImpl implements TicketService {
         List<TicketZoneResponse> response = ticketRepository.findByZoneAndPerformance(request.performanceId(), request.sessionNum(), request.zone());
         PerformanceSeatPrice seatPrice = performanceSeatPriceRepository.findByPerformance_PerformanceIdAndZone(request.performanceId(), request.zone());
         return new TicketZonesResponse(seatPrice.getZone(), seatPrice.getPrice(), response);
+    }
+
+    @Override
+    public List<Long> findExpiredHoldTicketIds() {
+        return ticketRepository.findByTicketStatusAndHoldExpiredAtBefore(TicketStatus.HOLD, LocalDateTime.now())
+                .stream()
+                .map(Ticket::getTicketId)
+                .toList();
     }
 
     private @NonNull Ticket getTicket(Long ticketId) {
