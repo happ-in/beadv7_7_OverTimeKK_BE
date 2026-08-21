@@ -5,15 +5,18 @@ import com.programmers.kdt.performance.dto.PerformanceV2Request;
 import com.programmers.kdt.performance.dto.RegisterPerformanceRequest;
 import com.programmers.kdt.performance.dto.RegisterPerformanceSessionRequest;
 import com.programmers.kdt.performance.entity.Performance;
+import com.programmers.kdt.performance.event.PerformanceCacheEvictEvent;
+import com.programmers.kdt.performance.event.PerformanceSeatPriceRegisterEvent;
+import com.programmers.kdt.performance.event.PerformanceSessionRegisterEvent;
 import com.programmers.kdt.performance.repository.PerformanceRepository;
-import com.programmers.kdt.performance.repository.PerformanceSeatPriceRepository;
-import com.programmers.kdt.performance.repository.PerformanceSessionRepository;
+import com.programmers.kdt.ticket.event.TicketIssueEvent;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
@@ -21,21 +24,19 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class PerformanceV2ServiceTest {
 
-    @Mock private PerformanceSeatPriceRepository seatPriceRepository;
     @Mock private PerformanceRepository performanceRepository;
-    @Mock private PerformanceSessionRepository performanceSessionRepository;
+    @Mock private ApplicationEventPublisher publisher;
 
     @InjectMocks private PerformanceV2Service performanceService;
 
     @Test
-    @DisplayName("판매자가 새 공연을 등록한다.")
+    @DisplayName("판매자가 새 공연을 등록하면 회차등록/좌석금액등록/티켓발급/캐시삭제 이벤트가 발행된다.")
     void registerPerformanceInformation() {
 
         RegisterPerformanceSessionRequest sessionRequest1 = new RegisterPerformanceSessionRequest(
@@ -50,12 +51,10 @@ class PerformanceV2ServiceTest {
                 LocalDateTime.of(2026, 8, 15, 20, 0, 0)
         );
 
-
         PerformanceSeatPriceRequest seatPriceRequest1 = new PerformanceSeatPriceRequest("VIP", 150000L);
         PerformanceSeatPriceRequest seatPriceRequest2 = new PerformanceSeatPriceRequest("R", 120000L);
         PerformanceSeatPriceRequest seatPriceRequest3 = new PerformanceSeatPriceRequest("S", 80000L);
         PerformanceSeatPriceRequest seatPriceRequest4 = new PerformanceSeatPriceRequest("A", 50000L);
-
 
         PerformanceV2Request performanceRequest = new PerformanceV2Request(
                 "집인데 집에 가고 싶다.",
@@ -64,7 +63,8 @@ class PerformanceV2ServiceTest {
                 LocalDate.of(2026, 9, 1),
                 LocalDate.of(2026, 9, 30),
                 LocalDateTime.of(2026, 8, 1, 10, 0, 0),
-                1L
+                1L,
+                null
         );
 
         RegisterPerformanceRequest request = new RegisterPerformanceRequest(
@@ -83,7 +83,9 @@ class PerformanceV2ServiceTest {
 
         // then
         verify(performanceRepository).save(any(Performance.class));
-        verify(performanceSessionRepository).saveAll(anyList());
-        verify(seatPriceRepository).saveAll(anyList());
+        verify(publisher).publishEvent(any(PerformanceSessionRegisterEvent.class));
+        verify(publisher).publishEvent(any(PerformanceSeatPriceRegisterEvent.class));
+        verify(publisher).publishEvent(any(TicketIssueEvent.class));
+        verify(publisher).publishEvent(any(PerformanceCacheEvictEvent.class));
     }
 }
