@@ -105,6 +105,10 @@ public class Order extends BaseTimeEntity {
         return orderStatus==OrderStatus.COMPLETED;
     }
 
+    public boolean isCancelRequested(){
+        return orderStatus == OrderStatus.CANCEL_REQUESTED;
+    }
+
     // 주문 완료 PAYMENT_STARTED -> COMPLETED
     public void complete(){
         if(orderStatus == OrderStatus.COMPLETED){
@@ -165,11 +169,36 @@ public class Order extends BaseTimeEntity {
         }
     }
 
-    // 결제 완료 후 주문 취소 COMPLETED -> CANCELED
-    public void cancelCompleted(){
+    // 결제 완료 후 주문 취소 접수 COMPLETED -> CANCEL_REQUESTED
+    public void requestCancel() {
         validateCancel();
+        this.orderStatus = OrderStatus.CANCEL_REQUESTED;
+    }
+
+    // 환불 성공 후 주문 취소 확정 CANCEL_REQUESTED -> CANCELLED
+    public boolean confirmCancel() {
+        if (orderStatus == OrderStatus.CANCELLED) {
+            return false; // 티켓 취소 이벤트의 중복 발행 방지
+        }
+        validateCancelRequested();
         this.orderStatus = OrderStatus.CANCELLED;
         this.cancelledAt = LocalDateTime.now();
+        return true;
+    }
+
+    // 환불 실패 후 주문 상태 복구 CANCEL_REQUESTED -> COMPLETED
+    public void revertCancel() {
+        if (orderStatus == OrderStatus.COMPLETED) {
+            return;
+        }
+        validateCancelRequested();
+        this.orderStatus = OrderStatus.COMPLETED;
+    }
+
+    private void validateCancelRequested() {
+        if (orderStatus != OrderStatus.CANCEL_REQUESTED) {
+            throw new BusinessException(OrderErrorCode.ORDER_CANCEL_NOT_REQUESTED);
+        }
     }
 
     // 티켓 ID

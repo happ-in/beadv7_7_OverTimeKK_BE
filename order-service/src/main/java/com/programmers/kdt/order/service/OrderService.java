@@ -26,6 +26,12 @@ public interface OrderService {
 
     CancelOrderResponse cancelPendingOrder(Long orderId, Long userId);
 
+    // 환불 성공 시 주문 취소 확정
+    void confirmCancellation(Long orderId);
+
+    // 환불 실패 시 주문 취소 접수 복구
+    void revertCancellation(Long orderId);
+
     // 결제 실패 시 주문 상태 변경
     void handlePaymentFailed(Long orderId);
 }
