@@ -48,7 +48,6 @@ public class Payment extends BaseTimeEntity {
 
     //결제 생성 메서드
     public static Payment create(Long orderId, Long userId, Long amount) {
-
         if (orderId == null) { // 어떤 예외처리 ?
             throw new BusinessException(PaymentErrorCode.MISSING_ORDER_ID);
         }

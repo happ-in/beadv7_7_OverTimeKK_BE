@@ -13,6 +13,7 @@ public enum PaymentErrorCode implements ErrorCode {
     MISSING_PAYMENT_ID(HttpStatus.BAD_REQUEST, "PAY400_006", "결제 정보가 없습니다."),
     ZERO_REFUND_AMOUNT(HttpStatus.BAD_REQUEST, "PAY400_007", "환불 금액은 0원보다 커야 합니다. 금액: {0}"),
     MISSING_TRANSACTION_KEY(HttpStatus.BAD_REQUEST, "PAY400_008", "결제 승인 키(transactionKey)가 없습니다."),
+    INVALID_IDEMPOTENCY_KEY(HttpStatus.BAD_REQUEST, "PAY400_009", "멱등키가 없습니다."),
 
     PAYMENT_ACCESS_DENIED(HttpStatus.FORBIDDEN, "PAY403_001", "본인 결제 건에 대해서만 접근할 수 있습니다."),
 
@@ -24,6 +25,7 @@ public enum PaymentErrorCode implements ErrorCode {
     INVALID_PAYMENT_STATUS(HttpStatus.CONFLICT, "PAY409_002", "현재 결제 상태에서는 처리할 수 없는 요청입니다. 현재 상태: {0}"),
     PAYMENT_CONCURRENT_MODIFICATION(HttpStatus.CONFLICT, "PAY409_003", "다른 요청과 동시에 처리되어 실패했습니다. 잠시 후 다시 시도해주세요."),
     REFUND_ALREADY_IN_PROGRESS(HttpStatus.CONFLICT, "PAY409_004", "이미 처리 중인 환불 요청이 있습니다."),
+    IDEMPOTENCY_KEY_CONFLICT(HttpStatus.CONFLICT, "PAY409_005", "동일한 멱등키로 다른 요청이 이미 처리되었습니다."),
 
     REFUND_PERIOD_EXPIRED(HttpStatus.UNPROCESSABLE_CONTENT, "PAY422_001", "환불 가능 기간이 지나 취소할 수 없습니다."),
 
