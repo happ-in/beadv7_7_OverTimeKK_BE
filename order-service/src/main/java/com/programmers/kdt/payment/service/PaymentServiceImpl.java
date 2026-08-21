@@ -28,9 +28,14 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
+import tools.jackson.databind.ObjectMapper;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HexFormat;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -48,11 +53,50 @@ public class PaymentServiceImpl implements PaymentService{
     private final OrderClient orderClient;
     private final PgClient pgClient;
     private final PointService pointService;
+    private final IdempotencyKeyService idempotencyKeyService;
+    private final ObjectMapper objectMapper;
     private final PaymentResultEventPublisher paymentResultEventPublisher;
 
-    // 결제 생성
+
     @Transactional
-    public CreatePaymentResponse pay(CreatePaymentRequest request, Long userId) {
+    public CreatePaymentResponse pay(String idempotencyKey, CreatePaymentRequest request, Long userId) {
+        String key = "PAY:" + idempotencyKey;
+        String requestHash = hashRequest(request);
+        Optional<String> cached = idempotencyKeyService.generate(key, requestHash);
+        if (cached.isPresent()) {
+            return deserialize(cached.get(), CreatePaymentResponse.class);
+        }
+
+        try {
+            CreatePaymentResponse response = doPay(request, userId);
+            idempotencyKeyService.complete(key, toJson(response));
+            return response;
+        } catch (RuntimeException e) {
+            idempotencyKeyService.release(key);
+            throw e;
+        }
+    }
+
+    private String toJson(Object value) {
+        return objectMapper.writeValueAsString(value);
+    }
+
+    private <T> T deserialize(String json, Class<T> type) {
+        return objectMapper.readValue(json, type);
+    }
+
+    private String hashRequest(Object request) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(toJson(request).getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    // 결제 생성
+    private CreatePaymentResponse doPay(CreatePaymentRequest request, Long userId) {
         Order order = orderRepository.findById(request.orderId())
                 .orElseThrow(() -> new BusinessException(PaymentErrorCode.ORDER_NOT_FOUND));
 
@@ -72,7 +116,7 @@ public class PaymentServiceImpl implements PaymentService{
 
         // 사용 포인트 검증 및 차감 (PG 결제 금액 = 주문 금액 - 사용 포인트)
         Long usedPoint = request.usedPointOrZero();
-        if (usedPoint > request.amount() || usedPoint < 0) {
+        if (usedPoint >= request.amount() || usedPoint < 0) {
             throw new BusinessException(PaymentErrorCode.INVALID_PAYMENT_AMOUNT);
         }
 
@@ -99,9 +143,27 @@ public class PaymentServiceImpl implements PaymentService{
         return CreatePaymentResponse.of(payment, readyResult);
     }
 
-    // 결제 확인
     @Transactional
-    public ConfirmPaymentResponse confirm(Long paymentId, ConfirmPaymentRequest request, Long userId) {
+    public ConfirmPaymentResponse confirm(Long paymentId, ConfirmPaymentRequest request, String idempotencyKey, Long userId) {
+        String key = "CONFIRM:" + idempotencyKey;
+        String requestHash = hashRequest(request);
+        Optional<String> cached = idempotencyKeyService.generate(key, requestHash);
+        if (cached.isPresent()) {
+            return deserialize(cached.get(), ConfirmPaymentResponse.class);
+        }
+
+        try {
+            ConfirmPaymentResponse response = doConfirm(paymentId, request, userId);
+            idempotencyKeyService.complete(key, toJson(response));
+            return response;
+        } catch (RuntimeException e) {
+            idempotencyKeyService.release(key);
+            throw e;
+        }
+    }
+
+    // 결제 확인
+    private ConfirmPaymentResponse doConfirm(Long paymentId, ConfirmPaymentRequest request, Long userId) {
         Payment payment = getPayment(paymentId);
 
         if (!payment.getUserId().equals(userId)) throw new BusinessException(PaymentErrorCode.PAYMENT_ACCESS_DENIED);
@@ -112,6 +174,12 @@ public class PaymentServiceImpl implements PaymentService{
         }
 
         payment.assignPaymentKey(request.transactionKey());
+        try {
+            paymentRepository.saveAndFlush(payment);
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw new BusinessException(PaymentErrorCode.PAYMENT_CONCURRENT_MODIFICATION);
+        }
+
         Long usedPoint = getUsedPointForOrder(payment.getOrderId());
         Long pgApproveAmount = payment.getAmount() - usedPoint;
 
@@ -147,6 +215,12 @@ public class PaymentServiceImpl implements PaymentService{
 
         boolean alreadyFailed = payment.getPaymentStatus() == PaymentStatus.FAILED;
         payment.fail();
+
+        try {
+            paymentRepository.saveAndFlush(payment); // PG 요청전, 이중 호출 방지
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw new BusinessException(PaymentErrorCode.PAYMENT_CONCURRENT_MODIFICATION);
+        }
 
         if (!alreadyFailed) {
             if (payment.getPaymentKey() != null) {
@@ -255,8 +329,6 @@ public class PaymentServiceImpl implements PaymentService{
         }
     }
 
-
-
     // 환불 내역 조회
     @Transactional(readOnly = true)
     public Page<GetPaymentRefundHistoryResponse> getRefundHistory (Long paymentId, Long userId, Pageable pageable) {
@@ -284,28 +356,28 @@ public class PaymentServiceImpl implements PaymentService{
     private Payment getPayment(Long paymentId) {
         return paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new BusinessException(PaymentErrorCode.PAYMENT_NOT_FOUND));
-    }
+        }
 
-    private Long getUsedPointForOrder(Long orderId) {
-        return resolveUsedPoint(pointUseEventId(orderId));
-    }
+        private Long getUsedPointForOrder(Long orderId) {
+            return resolveUsedPoint(pointUseEventId(orderId));
+        }
 
-    private String pointUseEventId(Long orderId) {
-        return "ORDER:" + orderId + ":POINT_USE";
-    }
+        private String pointUseEventId(Long orderId) {
+            return "ORDER:" + orderId + ":POINT_USE";
+        }
 
-    private String pointRollbackFailEventId(Long orderId) {
-        return "ORDER:" + orderId + ":POINT_ROLLBACK_FAIL";
-    }
+        private String pointRollbackFailEventId(Long orderId) {
+            return "ORDER:" + orderId + ":POINT_ROLLBACK_FAIL";
+        }
 
-    private String pointRollbackRefundEventId(Long orderId) {
-        return "ORDER:" + orderId + ":POINT_ROLLBACK_REFUND";
-    }
+        private String pointRollbackRefundEventId(Long orderId) {
+            return "ORDER:" + orderId + ":POINT_ROLLBACK_REFUND";
+        }
 
-    private void rollbackFailedPoint(Long orderId, Long usedPoint) {
-        if (usedPoint > 0) {
-            pointService.rollbackPoint(pointUseEventId(orderId), usedPoint,
-                    pointRollbackFailEventId(orderId), true);
+        private void rollbackFailedPoint(Long orderId, Long usedPoint) {
+            if (usedPoint > 0) {
+                pointService.rollbackPoint(pointUseEventId(orderId), usedPoint,
+                        pointRollbackFailEventId(orderId), true);
         }
     }
 

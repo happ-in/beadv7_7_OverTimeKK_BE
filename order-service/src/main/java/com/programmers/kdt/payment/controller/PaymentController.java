@@ -24,9 +24,10 @@ public class PaymentController {
     // 결제 요청
     @PostMapping("/pay")
     public ResponseEntity<ApiResponse<CreatePaymentResponse>> pay(
+            @RequestHeader(name = "Idempotency-Key") final String idempotencyKey,
             @Valid @RequestBody CreatePaymentRequest request,
             @RequestHeader("X-User-Id") Long userId) {
-        CreatePaymentResponse response = paymentService.pay(request, userId);
+        CreatePaymentResponse response = paymentService.pay(idempotencyKey, request, userId);
         return ResponseEntity.created(URI.create("/api/payments/" + response.paymentId())).body(ApiResponse.success(response));
     }
 
@@ -35,9 +36,10 @@ public class PaymentController {
     public ApiResponse<ConfirmPaymentResponse> confirm(
             @PathVariable Long paymentId,
             @Valid @RequestBody ConfirmPaymentRequest request,
+            @RequestHeader(name = "Idempotency-Key") final String idempotencyKey,
             @RequestHeader("X-User-Id") Long userId
     ) {
-        ConfirmPaymentResponse response = paymentService.confirm(paymentId, request, userId);
+        ConfirmPaymentResponse response = paymentService.confirm(paymentId, request, idempotencyKey, userId);
         return ApiResponse.success(response);
     }
 
