@@ -18,7 +18,7 @@ class PerformanceTest {
                 "뮤지컬A", "설명", 120L,
                 LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31),
                 LocalDateTime.of(2026, 7, 1, 10, 0),
-                1L, 1L);
+                1L, 1L, null);
 
         assertThat(performance.getTitle()).isEqualTo("뮤지컬A");
         assertThat(performance.getSellerId()).isEqualTo(1L);
@@ -30,7 +30,7 @@ class PerformanceTest {
         assertThatThrownBy(() -> Performance.createPerformance(
                 "뮤지컬A", "설명", 120L,
                 LocalDate.of(2026, 8, 31), LocalDate.of(2026, 8, 1),
-                null, 1L, 1L))
+                null, 1L, 1L, null))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage(PerformanceErrorCode.INVALID_PERIOD.getMessage());
     }
@@ -41,7 +41,7 @@ class PerformanceTest {
                 "뮤지컬A", "설명", 120L,
                 LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31),
                 LocalDateTime.of(2026, 9, 1, 10, 0),
-                1L, 1L))
+                1L, 1L, null))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage(PerformanceErrorCode.INVALID_TICKET_OPEN.getMessage());
     }
@@ -50,7 +50,7 @@ class PerformanceTest {
     void 공연_수정_성공() {
         Performance performance = Performance.createPerformance(
                 "뮤지컬A", "설명", 120L,
-                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 1L);
+                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 1L, null);
 
         performance.updatePerformance("뮤지컬B", "수정설명", 130L,
                 LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), null, 2L);
@@ -63,7 +63,7 @@ class PerformanceTest {
     void 수정시_종료일이_시작일보다_빠르면_예외() {
         Performance performance = Performance.createPerformance(
                 "뮤지컬A", "설명", 120L,
-                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 1L);
+                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 1L, null);
 
         assertThatThrownBy(() -> performance.updatePerformance("뮤지컬B", "설명", 120L,
                 LocalDate.of(2026, 9, 30), LocalDate.of(2026, 9, 1), null, 1L))

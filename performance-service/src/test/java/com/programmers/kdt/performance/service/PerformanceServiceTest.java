@@ -1,6 +1,7 @@
 package com.programmers.kdt.performance.service;
 
 import com.programmers.kdt.common.exception.BusinessException;
+import com.programmers.kdt.image.service.S3ImageService;
 import com.programmers.kdt.performance.dto.PerformanceDetailResponse;
 import com.programmers.kdt.performance.dto.PerformanceRequest;
 import com.programmers.kdt.performance.dto.PerformanceResponse;
@@ -39,6 +40,9 @@ class PerformanceServiceTest {
     @Mock
     private PerformanceSeatPriceRepository performanceSeatPriceRepository;
 
+    @Mock
+    private S3ImageService imageService;
+
     @InjectMocks
     private PerformanceService performanceService;
 
@@ -48,13 +52,13 @@ class PerformanceServiceTest {
         PerformanceRequest request = new PerformanceRequest(
                 "뮤지컬A", "설명", 120L,
                 LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31),
-                null, 1L);
+                null, 1L, null);
         Long sellerId = 1L;
 
         Performance saved = Performance.createPerformance(
                 "뮤지컬A", "설명", 120L,
                 LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31),
-                null, sellerId, 1L);
+                null, sellerId, 1L, null);
         ReflectionTestUtils.setField(saved, "performanceId", 1L);   // @Id는 setter가 없어 테스트에서 주입
         given(performanceRepository.save(any(Performance.class))).willReturn(saved);
 
@@ -71,12 +75,12 @@ class PerformanceServiceTest {
     void 공연_수정_성공() {
         Performance performance = Performance.createPerformance(
                 "뮤지컬A", "설명", 120L,
-                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 1L);
+                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 1L, null);
         given(performanceRepository.findById(1L)).willReturn(Optional.of(performance));
 
         PerformanceRequest request = new PerformanceRequest(
                 "뮤지컬B", "수정설명", 130L,
-                LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), null, 2L);
+                LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), null, 2L, null);
 
         performanceService.updatePerformance(1L, request, 1L);
 
@@ -89,7 +93,7 @@ class PerformanceServiceTest {
         given(performanceRepository.findById(999L)).willReturn(Optional.empty());
         PerformanceRequest request = new PerformanceRequest(
                 "뮤지컬B", "설명", 130L,
-                LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), null, 2L);
+                LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), null, 2L, null);
 
         assertThatThrownBy(() -> performanceService.updatePerformance(999L, request, 1L))
                 .isInstanceOf(BusinessException.class)
@@ -100,12 +104,12 @@ class PerformanceServiceTest {
     void 판매자_본인이_아니면_수정_예외() {
         Performance performance = Performance.createPerformance(
                 "뮤지컬A", "설명", 120L,
-                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 1L);
+                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 1L, null);
         given(performanceRepository.findById(1L)).willReturn(Optional.of(performance));
 
         PerformanceRequest request = new PerformanceRequest(
                 "뮤지컬B", "설명", 130L,
-                LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), null, 2L);
+                LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), null, 2L, null);
 
         assertThatThrownBy(() -> performanceService.updatePerformance(1L, request, 999L))
                 .isInstanceOf(BusinessException.class)
@@ -116,7 +120,7 @@ class PerformanceServiceTest {
     void 공연_삭제_성공() {
         Performance performance = Performance.createPerformance(
                 "뮤지컬A", "설명", 120L,
-                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 1L);
+                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 1L, null);
         given(performanceRepository.findById(1L)).willReturn(Optional.of(performance));
 
         performanceService.deletePerformance(1L, 1L);
@@ -140,7 +144,7 @@ class PerformanceServiceTest {
     void 판매자_본인이_아니면_삭제_예외() {
         Performance performance = Performance.createPerformance(
                 "뮤지컬A", "설명", 120L,
-                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 1L);
+                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 1L, null);
         given(performanceRepository.findById(1L)).willReturn(Optional.of(performance));
 
         assertThatThrownBy(() -> performanceService.deletePerformance(1L, 999L))
@@ -153,7 +157,7 @@ class PerformanceServiceTest {
     void 공연_단건_조회_성공() {
         Performance performance = Performance.createPerformance(
                 "뮤지컬A", "설명", 120L,
-                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 2L);
+                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 2L, null);
         given(performanceRepository.findById(1L)).willReturn(Optional.of(performance));
 
         PerformanceDetailResponse res = performanceService.getPerformanceDetail(1L);
@@ -175,10 +179,10 @@ class PerformanceServiceTest {
     void 공연_목록_조회_성공() {
         Performance a = Performance.createPerformance(
                 "뮤지컬A", "설명", 120L,
-                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 1L);
+                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), null, 1L, 1L, null);
         Performance b = Performance.createPerformance(
                 "뮤지컬B", "설명", 130L,
-                LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), null, 2L, 2L);
+                LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), null, 2L, 2L, null);
         given(performanceRepository.findAll()).willReturn(List.of(a, b));
 
         List<PerformanceDetailResponse> result = performanceService.getPerformances();
