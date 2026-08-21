@@ -121,9 +121,14 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public CancelOrderResponse cancelCompletedOrder(Long orderId, Long userId, CancelOrderRequest request) {
-        Order order = findOrder(orderId);
+        Order order = findOrderForUpdate(orderId);
 
         if(!userId.equals(order.getUserId())) throw new BusinessException(OrderErrorCode.ORDER_ACCESS_DENIED);
+      
+        // 이미 취소 접수된 주문의 재요청은 동일 응답을 반환
+        if (order.isCancelRequested()) {
+            return CancelOrderResponse.from(order);
+        }
 
         // 취소 가능한 주문인지 검증
         order.validateCancel();
@@ -131,14 +136,28 @@ public class OrderServiceImpl implements OrderService {
         // 결제 취소
         paymentService.refund(
                 order.getOrderId(),
-                new RefundPaymentRequest(request.reason())); // paymentService의 cancel메서드 파라미터 :orderId로 변경
+                new RefundPaymentRequest(request.reason()));
 
-        // 결제 취소 성공 -> 주문 취소 완료
-        order.cancelCompleted();
-
-        publishTicketCancelEvent(order);
+        // 환불 결과가 나오기 전까지는 취소 접수 상태와 티켓 예약을 유지
+        order.requestCancel();
 
         return CancelOrderResponse.from(order);
+    }
+
+    @Override
+    @Transactional
+    public void confirmCancellation(Long orderId) {
+        Order order = findOrderForUpdate(orderId);
+        if (order.confirmCancel()) {
+            publishTicketCancelEvent(order);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void revertCancellation(Long orderId) {
+        Order order = findOrderForUpdate(orderId);
+        order.revertCancel();
     }
 
     @Override
@@ -185,6 +204,11 @@ public class OrderServiceImpl implements OrderService {
         return orderRepository.findById(orderId)
                 .orElseThrow(()->
                         new BusinessException(OrderErrorCode.ORDER_NOT_FOUND));
+    }
+
+    private Order findOrderForUpdate(Long orderId) {
+        return orderRepository.findByIdForUpdate(orderId)
+                .orElseThrow(() -> new BusinessException(OrderErrorCode.ORDER_NOT_FOUND));
     }
 
     private void publishTicketReleaseEvent(Order order) {
