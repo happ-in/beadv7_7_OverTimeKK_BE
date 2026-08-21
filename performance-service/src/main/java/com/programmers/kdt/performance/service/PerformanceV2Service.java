@@ -6,6 +6,7 @@ import com.programmers.kdt.performance.entity.Performance;
 import com.programmers.kdt.performance.entity.PerformanceSeatPrice;
 import com.programmers.kdt.performance.entity.PerformanceSession;
 import com.programmers.kdt.performance.entity.PerformanceStatus;
+import com.programmers.kdt.performance.event.PerformanceCacheEvictEvent;
 import com.programmers.kdt.performance.repository.PerformanceRepository;
 import com.programmers.kdt.performance.repository.PerformanceSeatPriceRepository;
 import com.programmers.kdt.performance.repository.PerformanceSessionRepository;
@@ -13,7 +14,7 @@ import com.programmers.kdt.ticket.entity.TicketStatus;
 import com.programmers.kdt.ticket.exception.TicketErrorCode;
 import com.programmers.kdt.ticket.repository.TicketRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,8 +29,8 @@ public class PerformanceV2Service {
     private final PerformanceSessionRepository sessionRepository;
     private final PerformanceSeatPriceRepository seatPriceRepository;
     private final TicketRepository ticketRepository;
+    private final ApplicationEventPublisher publisher;
 
-    @CacheEvict(value = "performanceList", allEntries = true)
     @Transactional
     public void registerPerformanceInformation(RegisterPerformanceRequest request, Long sellerId) {
         // 1. 공연등록
@@ -49,6 +50,9 @@ public class PerformanceV2Service {
         if (issueTicketCount <= 0) {
             throw new BusinessException(TicketErrorCode.TICKET_ISSUE_FAILED);
         }
+
+        // 5. 캐시삭제
+        publisher.publishEvent(new PerformanceCacheEvictEvent("performanceList", "all"));
     }
 
     @Transactional
