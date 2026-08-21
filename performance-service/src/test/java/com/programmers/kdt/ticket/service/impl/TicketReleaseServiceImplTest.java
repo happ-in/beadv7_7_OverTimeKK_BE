@@ -5,11 +5,11 @@ import com.programmers.kdt.ticket.entity.Ticket;
 import com.programmers.kdt.ticket.entity.TicketStatus;
 import com.programmers.kdt.ticket.event.StandbyCheckRequestEvent;
 import com.programmers.kdt.ticket.repository.TicketRepository;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
@@ -17,7 +17,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -31,52 +30,18 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class ChangeTicketStatusServiceImplTest {
+class TicketReleaseServiceImplTest {
 
-    @Mock
-    private TicketRepository ticketRepository;
+    @Mock private TicketRepository ticketRepository;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
-    @Mock
-    private ApplicationEventPublisher eventPublisher;
-
-    private ChangeTicketStatusServiceImpl changeTicketStatusService;
-
-    @BeforeEach
-    void setUp() {
-        changeTicketStatusService = new ChangeTicketStatusServiceImpl(ticketRepository, eventPublisher);
-    }
+    @InjectMocks private TicketReleaseServiceImpl ticketReleaseService;
 
     private static Ticket holdTicket(Long ticketId, Long userId, LocalDateTime holdExpiredAt, String holdKey) {
         Ticket ticket = Ticket.create(1L, 1L, "A", "1", String.valueOf(ticketId), 10000L);
         ReflectionTestUtils.setField(ticket, "ticketId", ticketId);
         ticket.holdTicket(userId, holdExpiredAt, holdKey);
         return ticket;
-    }
-
-    @Nested
-    @DisplayName("점유 만료 티켓 id 조회")
-    class FindExpiredHoldTicketIds {
-
-        @Test
-        @DisplayName("점유시간이 지난 HOLD 티켓의 id 목록을 반환한다.")
-        void returnsExpiredTicketIds() {
-            Ticket ticket = holdTicket(1L, 100L, LocalDateTime.now().minusMinutes(1), "hold-key");
-            when(ticketRepository.findByTicketStatusAndHoldExpiredAtBefore(eq(TicketStatus.HOLD), any()))
-                    .thenReturn(List.of(ticket));
-
-            List<Long> result = changeTicketStatusService.findExpiredHoldTicketIds();
-
-            assertThat(result).containsExactly(1L);
-        }
-
-        @Test
-        @DisplayName("점유시간이 지난 HOLD 티켓이 없으면 빈 목록을 반환한다.")
-        void noExpiredTickets_returnsEmpty() {
-            when(ticketRepository.findByTicketStatusAndHoldExpiredAtBefore(eq(TicketStatus.HOLD), any()))
-                    .thenReturn(List.of());
-
-            assertThat(changeTicketStatusService.findExpiredHoldTicketIds()).isEmpty();
-        }
     }
 
     @Nested
@@ -91,7 +56,7 @@ class ChangeTicketStatusServiceImplTest {
             when(ticketRepository.existsByPerformanceIdAndSessionNumAndTicketStatusAndZone(any(), any(), eq(TicketStatus.AVAILABLE), anyString()))
                     .thenReturn(true);
 
-            changeTicketStatusService.releaseExpiredHoldTicket(1L, new HashMap<>());
+            ticketReleaseService.releaseExpiredHoldTicket(1L, new HashMap<>());
 
             assertThat(ticket.getTicketStatus()).isEqualTo(TicketStatus.AVAILABLE);
             assertThat(ticket.getBuyUserId()).isNull();
@@ -106,7 +71,7 @@ class ChangeTicketStatusServiceImplTest {
             when(ticketRepository.existsByPerformanceIdAndSessionNumAndTicketStatusAndZone(any(), any(), eq(TicketStatus.AVAILABLE), anyString()))
                     .thenReturn(false);
 
-            changeTicketStatusService.releaseExpiredHoldTicket(1L, new HashMap<>());
+            ticketReleaseService.releaseExpiredHoldTicket(1L, new HashMap<>());
 
             assertThat(ticket.getTicketStatus()).isEqualTo(TicketStatus.HOLD);
             verify(eventPublisher).publishEvent(any(StandbyCheckRequestEvent.class));
@@ -119,7 +84,7 @@ class ChangeTicketStatusServiceImplTest {
             ticket.releaseToAvailable();
             when(ticketRepository.findById(1L)).thenReturn(Optional.of(ticket));
 
-            changeTicketStatusService.releaseExpiredHoldTicket(1L, new HashMap<>());
+            ticketReleaseService.releaseExpiredHoldTicket(1L, new HashMap<>());
 
             assertThat(ticket.getTicketStatus()).isEqualTo(TicketStatus.AVAILABLE);
             verify(ticketRepository, never())
@@ -138,8 +103,8 @@ class ChangeTicketStatusServiceImplTest {
                     .thenReturn(true);
 
             Map<SessionZoneKey, Boolean> cache = new HashMap<>();
-            changeTicketStatusService.releaseExpiredHoldTicket(1L, cache);
-            changeTicketStatusService.releaseExpiredHoldTicket(2L, cache);
+            ticketReleaseService.releaseExpiredHoldTicket(1L, cache);
+            ticketReleaseService.releaseExpiredHoldTicket(2L, cache);
 
             assertThat(ticket1.getTicketStatus()).isEqualTo(TicketStatus.AVAILABLE);
             assertThat(ticket2.getTicketStatus()).isEqualTo(TicketStatus.AVAILABLE);
