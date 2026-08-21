@@ -42,7 +42,7 @@ public class FindPerformanceServiceImpl implements FindPerformanceService {
     private final HallRepository hallRepository;
     private final S3ImageService imageService;
 
-    @Cacheable(value = "performanceList", key = "'all'")
+    @Cacheable(value = "performanceList", key = "#page")
     @Override
     public FindPerformancesResponse findPerformances(PerformanceStatus status, int page) {
         if (page <= 0) {
