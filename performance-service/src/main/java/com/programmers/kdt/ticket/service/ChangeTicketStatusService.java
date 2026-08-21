@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 public interface ChangeTicketStatusService {
-    CheckTicketHoldAvailableResponse checkTicketHoldStatus(CheckTicketHoldAvailableRequest request);
+    CheckTicketHoldAvailableResponse checkTicketHoldStatus(CheckTicketHoldAvailableRequest request, Long userId);
 
     void releaseHoldTicket(ReleaseTicketHoldRequest request);
 

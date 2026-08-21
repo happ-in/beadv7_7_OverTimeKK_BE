@@ -29,9 +29,9 @@ public class PerformanceV2Service {
     private final TicketRepository ticketRepository;
 
     @Transactional
-    public void registerPerformanceInformation(RegisterPerformanceRequest request) {
+    public void registerPerformanceInformation(RegisterPerformanceRequest request, Long sellerId) {
         // 1. 공연등록
-        Performance performance = performanceRepository.save(request.toPerformance());
+        Performance performance = performanceRepository.save(request.toPerformance(sellerId));
 
         // 2. 회차등록
         List<PerformanceSession> sessions = request.toSessions(performance);

@@ -29,9 +29,9 @@ public class PerformanceSessionServiceImpl implements PerformanceSessionService 
     private final TicketRepository ticketRepository;
 
     @Transactional
-    public PerformanceSessionResponse registerPerformanceSession(PerformanceSessionRequest request) {
+    public PerformanceSessionResponse registerPerformanceSession(PerformanceSessionRequest request, Long sellerId) {
         Performance performance = getPerformance(request.performanceId());
-        // TODO : 인증되어 들어온 판매자가 performance의 seller_id와 일치하는 검증 로직 필요
+        validateOwner(performance, sellerId);
         PerformanceSession session = sessionRepository.save(request.toEntity(performance));
 
         ticketRepository.issueAdditionalTickets(request.performanceId(), request.sessionNum(), TicketStatus.AVAILABLE);
@@ -40,17 +40,19 @@ public class PerformanceSessionServiceImpl implements PerformanceSessionService 
     }
 
     @Transactional
-    public PerformanceSessionResponse changePerformanceSession(PerformanceSessionRequest request) {
+    public PerformanceSessionResponse changePerformanceSession(PerformanceSessionRequest request, Long sellerId) {
         PerformanceSession session = getPerformanceSession(new PerformanceSessionId(request.sessionNum(), request.performanceId()));
+        validateOwner(session.getPerformance(), sellerId);
         session.changePerformanceSession(request.actor(), request.performanceStartAt());
         return PerformanceSessionResponse.from(session);
     }
 
     @Transactional
-    public void deletePerformanceSession(Long sessionNum, Long performanceId) {
+    public void deletePerformanceSession(Long sessionNum, Long performanceId, Long sellerId) {
         PerformanceSessionId sessionId = new PerformanceSessionId(sessionNum, performanceId);
         PerformanceSession session = getPerformanceSession(sessionId);
         Performance performance = getPerformance(performanceId);
+        validateOwner(performance, sellerId);
         validDeleteSessionTime(performance.getTicketOpenAt(), session.getPerformanceStartAt());
         sessionRepository.deleteById(sessionId);
 
@@ -60,10 +62,17 @@ public class PerformanceSessionServiceImpl implements PerformanceSessionService 
     }
 
     @Transactional
-    public void deletePerformanceSessions(Long performanceId) {
+    public void deletePerformanceSessions(Long performanceId, Long sellerId) {
         Performance performance = getPerformance(performanceId);
+        validateOwner(performance, sellerId);
         validateDeletableBeforeTicketOpen(performance.getTicketOpenAt());
         sessionRepository.deleteByPerformanceSessionId_PerformanceId(performanceId);
+    }
+
+    private void validateOwner(Performance performance, Long sellerId) {
+        if (!performance.getSellerId().equals(sellerId)) {
+            throw new BusinessException(PerformanceErrorCode.NOT_PERFORMANCE_OWNER);
+        }
     }
 
     public List<PerformanceSessionResponse> findAllPerformanceSessionsByPerformanceId(Long performanceId) {
