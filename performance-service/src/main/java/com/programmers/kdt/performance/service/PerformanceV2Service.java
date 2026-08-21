@@ -13,6 +13,7 @@ import com.programmers.kdt.ticket.entity.TicketStatus;
 import com.programmers.kdt.ticket.exception.TicketErrorCode;
 import com.programmers.kdt.ticket.repository.TicketRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +29,7 @@ public class PerformanceV2Service {
     private final PerformanceSeatPriceRepository seatPriceRepository;
     private final TicketRepository ticketRepository;
 
+    @CacheEvict(value = "performanceList", allEntries = true)
     @Transactional
     public void registerPerformanceInformation(RegisterPerformanceRequest request, Long sellerId) {
         // 1. 공연등록
