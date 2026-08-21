@@ -1,34 +1,26 @@
 package com.programmers.kdt.performance.service;
 
-import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.performance.dto.RegisterPerformanceRequest;
 import com.programmers.kdt.performance.entity.Performance;
-import com.programmers.kdt.performance.entity.PerformanceSeatPrice;
-import com.programmers.kdt.performance.entity.PerformanceSession;
 import com.programmers.kdt.performance.entity.PerformanceStatus;
 import com.programmers.kdt.performance.event.PerformanceCacheEvictEvent;
+import com.programmers.kdt.performance.event.PerformanceSeatPriceRegisterEvent;
+import com.programmers.kdt.performance.event.PerformanceSessionRegisterEvent;
 import com.programmers.kdt.performance.repository.PerformanceRepository;
-import com.programmers.kdt.performance.repository.PerformanceSeatPriceRepository;
-import com.programmers.kdt.performance.repository.PerformanceSessionRepository;
 import com.programmers.kdt.ticket.entity.TicketStatus;
-import com.programmers.kdt.ticket.exception.TicketErrorCode;
-import com.programmers.kdt.ticket.repository.TicketRepository;
+import com.programmers.kdt.ticket.event.TicketIssueEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class PerformanceV2Service {
 
     private final PerformanceRepository performanceRepository;
-    private final PerformanceSessionRepository sessionRepository;
-    private final PerformanceSeatPriceRepository seatPriceRepository;
-    private final TicketRepository ticketRepository;
     private final ApplicationEventPublisher publisher;
 
     @Transactional
@@ -37,19 +29,13 @@ public class PerformanceV2Service {
         Performance performance = performanceRepository.save(request.toPerformance(sellerId));
 
         // 2. 회차등록
-        List<PerformanceSession> sessions = request.toSessions(performance);
-        sessionRepository.saveAll(sessions);
+        publisher.publishEvent(new PerformanceSessionRegisterEvent(performance, request.sessionRequests()));
 
         // 3. 좌석 등급별 금액 등록
-        List<PerformanceSeatPrice> seatPrices = request.toSeatPrices(performance);
-        seatPriceRepository.saveAll(seatPrices);
+        publisher.publishEvent(new PerformanceSeatPriceRegisterEvent(performance, request.seatPriceRequests()));
 
         // 4. Ticket
-        // TODO : 이벤트로 분리하기
-        int issueTicketCount = ticketRepository.issueTicket(performance.getPerformanceId(), TicketStatus.AVAILABLE);
-        if (issueTicketCount <= 0) {
-            throw new BusinessException(TicketErrorCode.TICKET_ISSUE_FAILED);
-        }
+        publisher.publishEvent(new TicketIssueEvent(performance.getPerformanceId(), TicketStatus.AVAILABLE));
 
         // 5. 캐시삭제
         publisher.publishEvent(new PerformanceCacheEvictEvent("performanceList", "all"));
