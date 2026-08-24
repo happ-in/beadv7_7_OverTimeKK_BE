@@ -49,7 +49,7 @@ public class FindPerformanceServiceImpl implements FindPerformanceService {
             throw new BusinessException(CommonErrorCode.PAGE_BAD_REQUEST);
         }
 
-        Pageable pageable = PageRequest.of(page-1, PageConstants.DEFAULT_PAGE_SIZE, Sort.by("startDate", "performanceId").ascending());
+        Pageable pageable = PageRequest.of(page-1, PageConstants.DEFAULT_PAGE_SIZE, Sort.by("endDate", "performanceId").descending());
         Page<Performance> performances = findPerformances(status, pageable);
 
         if (performances.isEmpty()) {

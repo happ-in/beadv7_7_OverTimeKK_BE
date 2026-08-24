@@ -40,14 +40,17 @@ public interface PerformanceRepository extends JpaRepository<Performance, Long> 
     @Query("""
                     select new com.programmers.kdt.performance.dto.PerformanceSessionSeatDto(
                            ps.performanceSessionId.sessionNum, ps.performanceStartAt,
-                           ps.actor, psp.zone, psp.price, count(t.ticketId))
+                           ps.actor, psp.zone, psp.price,
+                           case when ps.performanceStartAt < CURRENT_TIMESTAMP then null else count(t.ticketId) end)
                       from Performance p
                       join PerformanceSession ps on ps.performanceSessionId.performanceId = p.performanceId
-                      join PerformanceSeatPrice psp on psp.performance.performanceId = p.performanceId
+                 left join PerformanceSeatPrice psp on psp.performance.performanceId = p.performanceId
+                                    and ps.performanceStartAt >= CURRENT_TIMESTAMP
                  left join Ticket t on t.performanceId = p.performanceId
                                     and t.sessionNum = ps.performanceSessionId.sessionNum
                                     and t.zone = psp.zone
                                     and t.ticketStatus = com.programmers.kdt.ticket.entity.TicketStatus.AVAILABLE
+                                    and ps.performanceStartAt >= CURRENT_TIMESTAMP
                      where p.performanceId = :performanceId
                      group by ps.performanceSessionId.sessionNum, ps.performanceStartAt, ps.actor, psp.zone, psp.price
                      order by ps.performanceSessionId.sessionNum

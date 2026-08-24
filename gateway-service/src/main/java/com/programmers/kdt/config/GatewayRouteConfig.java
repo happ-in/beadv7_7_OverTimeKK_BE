@@ -45,7 +45,9 @@ public class GatewayRouteConfig {
                 .or(path("/api/venues/**"))
                 .or(path("/api/halls/**"))
                 .or(path("/api/tickets/**"))
-                .or(path("/api/standby/**"));
+                .or(path("/api/standby/**"))
+                .or(path("/api/images/**"))
+                ;
 
         return route("user-service")
                 .route(path("/api/users/**"), http())
