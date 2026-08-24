@@ -21,6 +21,7 @@ import com.programmers.kdt.venue.repository.HallRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -41,13 +42,14 @@ public class FindPerformanceServiceImpl implements FindPerformanceService {
     private final HallRepository hallRepository;
     private final S3ImageService imageService;
 
+    @Cacheable(value = "performanceList", key = "#page")
     @Override
     public FindPerformancesResponse findPerformances(PerformanceStatus status, int page) {
         if (page <= 0) {
             throw new BusinessException(CommonErrorCode.PAGE_BAD_REQUEST);
         }
 
-        Pageable pageable = PageRequest.of(page-1, PageConstants.DEFAULT_PAGE_SIZE, Sort.by("startDate", "performanceId").ascending());
+        Pageable pageable = PageRequest.of(page-1, PageConstants.DEFAULT_PAGE_SIZE, Sort.by("endDate", "performanceId").descending());
         Page<Performance> performances = findPerformances(status, pageable);
 
         if (performances.isEmpty()) {

@@ -1,7 +1,8 @@
 package com.programmers.kdt.ticket.scheduler;
 
-import com.programmers.kdt.ticket.service.ChangeTicketStatusService;
 import com.programmers.kdt.ticket.dto.SessionZoneKey;
+import com.programmers.kdt.ticket.service.TicketReleaseService;
+import com.programmers.kdt.ticket.service.TicketService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -17,11 +18,12 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class TicketScheduler {
 
-    private final ChangeTicketStatusService changeTicketStatusService;
+    private final TicketService ticketService;
+    private final TicketReleaseService ticketReleaseService;
 
     @Scheduled(fixedDelay = 60, timeUnit = TimeUnit.SECONDS)
     public void releaseExpiredHoldTickets() {
-        List<Long> expiredTicketIds = changeTicketStatusService.findExpiredHoldTicketIds();
+        List<Long> expiredTicketIds = ticketService.findExpiredHoldTicketIds();
         if (expiredTicketIds.isEmpty()) {
             return;
         }
@@ -31,7 +33,7 @@ public class TicketScheduler {
 
         for (Long ticketId : expiredTicketIds) {
             try {
-                changeTicketStatusService.releaseExpiredHoldTicket(ticketId, zoneAvailabilityCache);
+                ticketReleaseService.releaseExpiredHoldTicket(ticketId, zoneAvailabilityCache);
                 successCount++;
             } catch (Exception e) {
                 log.error("티켓 점유 해지 실패, ticket_id : {}", ticketId, e);

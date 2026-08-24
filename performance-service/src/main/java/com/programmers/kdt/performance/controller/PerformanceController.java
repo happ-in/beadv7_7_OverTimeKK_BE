@@ -21,7 +21,6 @@ public class PerformanceController {
 
     private final PerformanceService performanceService;
 
-    // TODO: user-service 판매자 검증필요
     @PostMapping
     public ResponseEntity<ApiResponse<PerformanceResponse>> registerPerformance(
             @Valid @RequestBody PerformanceRequest request,

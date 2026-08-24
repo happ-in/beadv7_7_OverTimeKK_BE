@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -24,16 +25,19 @@ public class PerformanceSessionController {
 
     private final PerformanceSessionService performanceSessionService;
 
-    // TODO : 회차정보 작성도 회원 인증(판매자 검증) 필요.
     @PostMapping("/session")
-    public ApiResponse<?> registerPerformanceSession(@Valid @RequestBody PerformanceSessionRequest request) {
-        PerformanceSessionResponse response = performanceSessionService.registerPerformanceSession(request);
+    public ApiResponse<?> registerPerformanceSession(
+            @Valid @RequestBody PerformanceSessionRequest request,
+            @RequestHeader("X-User-Id") Long sellerId) {
+        PerformanceSessionResponse response = performanceSessionService.registerPerformanceSession(request, sellerId);
         return ApiResponse.success(response);
     }
 
     @PutMapping("/session")
-    public ApiResponse<?> changePerformanceSession(@Valid @RequestBody PerformanceSessionRequest request) {
-        PerformanceSessionResponse response = performanceSessionService.changePerformanceSession(request);
+    public ApiResponse<?> changePerformanceSession(
+            @Valid @RequestBody PerformanceSessionRequest request,
+            @RequestHeader("X-User-Id") Long sellerId) {
+        PerformanceSessionResponse response = performanceSessionService.changePerformanceSession(request, sellerId);
         return ApiResponse.success(response);
     }
 
@@ -50,14 +54,18 @@ public class PerformanceSessionController {
     }
 
     @DeleteMapping("/{performanceId}/session/{sessionNum}")
-    public ApiResponse<?> deletePerformanceSession(@Valid @PathVariable Long performanceId, @PathVariable Long sessionNum) {
-        performanceSessionService.deletePerformanceSession(sessionNum, performanceId);
+    public ApiResponse<?> deletePerformanceSession(
+            @Valid @PathVariable Long performanceId, @PathVariable Long sessionNum,
+            @RequestHeader("X-User-Id") Long sellerId) {
+        performanceSessionService.deletePerformanceSession(sessionNum, performanceId, sellerId);
         return ApiResponse.success(null);
     }
 
     @DeleteMapping("/{performanceId}/session")
-    public ApiResponse<?> deletePerformanceSessions(@PathVariable Long performanceId) {
-        performanceSessionService.deletePerformanceSessions(performanceId);
+    public ApiResponse<?> deletePerformanceSessions(
+            @PathVariable Long performanceId,
+            @RequestHeader("X-User-Id") Long sellerId) {
+        performanceSessionService.deletePerformanceSessions(performanceId, sellerId);
         return ApiResponse.success(null);
     }
 }

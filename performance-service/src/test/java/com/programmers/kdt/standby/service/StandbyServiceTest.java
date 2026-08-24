@@ -1,12 +1,14 @@
 package com.programmers.kdt.standby.service;
 
 import com.programmers.kdt.common.exception.BusinessException;
+import com.programmers.kdt.performance.entity.Performance;
 import com.programmers.kdt.performance.entity.PerformanceSession;
 import com.programmers.kdt.performance.entity.PerformanceSessionId;
 import com.programmers.kdt.performance.repository.PerformanceSeatPriceRepository;
 import com.programmers.kdt.performance.repository.PerformanceSessionRepository;
 import com.programmers.kdt.standby.entity.Standby;
 import com.programmers.kdt.standby.entity.StandbyStatus;
+import com.programmers.kdt.standby.dto.StandbyListResponse;
 import com.programmers.kdt.standby.dto.StandbyRankResponse;
 import com.programmers.kdt.standby.event.StandbyCheckResponseEvent;
 import com.programmers.kdt.standby.event.StandbyTicketEvent;
@@ -22,7 +24,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -612,6 +616,129 @@ class StandbyServiceTest {
                             exception -> assertThat(exception.getErrorCode())
                                     .isEqualTo(StandbyErrorCode.CANNOT_VIEW_RANK)
                     );
+        }
+    }
+
+    @Nested
+    @DisplayName("내 대기 목록 전체 조회(getStandby)")
+    class GetStandby {
+
+        private static final Long STANDBY_ID = 1L;
+
+        @Test
+        @DisplayName("내 대기 신청이 여러 건이면 각각 공연/회차/상태 정보로 매핑되어 반환된다.")
+        void returnsMappedListForUser() {
+            // given - 실제 도메인 객체(공연 → 회차 → 대기신청)를 팩토리 메서드로 조립, ID만 생성된 값으로 주입
+            Performance performance = Performance.createPerformance(
+                    "보노보노 콘서트", "보노보노의 콘서트입니다", 120L,
+                    LocalDate.now().plusDays(10), LocalDate.now().plusDays(11), null,
+                    777L, 1L, null);
+            LocalDateTime startAt = LocalDateTime.now().plusDays(10);
+            PerformanceSession realSession = PerformanceSession.create(sessionId(), performance, "보노보노", startAt);
+
+            Standby standby = Standby.apply(USER_ID, realSession, List.of("A", "B"));
+            standby.hold("A", 999L);
+            ReflectionTestUtils.setField(standby, "standbyId", STANDBY_ID);
+
+            given(standbyRepository.findByUserIdOrderByReservedAtDesc(USER_ID))
+                    .willReturn(List.of(standby));
+
+            // when
+            List<StandbyListResponse> responses = standbyService.getStandby(USER_ID);
+
+            // then
+            assertThat(responses).containsExactly(new StandbyListResponse(
+                    STANDBY_ID, PERFORMANCE_ID, SESSION_NUM, "보노보노 콘서트", startAt,
+                    List.of("A", "B"), "A", 999L, StandbyStatus.HELD.name(),
+                    standby.getReservedAt(), standby.getExpiredAt()
+            ));
+        }
+
+        @Test
+        @DisplayName("신청 내역이 없으면 빈 목록을 반환한다.")
+        void returnsEmptyListWhenNoStandby() {
+            // given
+            given(standbyRepository.findByUserIdOrderByReservedAtDesc(USER_ID))
+                    .willReturn(List.of());
+
+            // when
+            List<StandbyListResponse> responses = standbyService.getStandby(USER_ID);
+
+            // then
+            assertThat(responses).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("결제 기한 만료에 대한 테스트")
+    class ExpireHeldStandbys {
+
+        @Test
+        @DisplayName("매칭 zone만 취소되고 이후 남은 지망 zone은 WAITING으로 유지된 채 같은 zone으로 다음 재매칭 시도")
+        void expiredStandbyKeepsOtherZonesWaiting() {
+            // given - VIP/S/R 지망 중 VIP로 매칭(HELD)됐고 결제 기한(expiredAt)이 지남
+            Standby expired = Standby.apply(USER_ID, session, List.of("VIP", "S", "R"));
+            expired.hold("VIP", 1L);
+            given(standbyRepository.findAllByStandbyStatusAndExpiredAtLessThanEqual(eq(StandbyStatus.HELD), any()))
+                    .willReturn(List.of(expired));
+            given(standbyRepository.findMatchCandidate(session, "VIP", StandbyStatus.WAITING))
+                    .willReturn(Optional.empty());
+
+            // when
+            int count = standbyService.expireHeldStandbys();
+
+            // then - VIP 지망만 사라지고 S/R은 그대로 남아 WAITING으로 복귀 (매칭된 zone만취소)
+            assertThat(expired.getZone1()).isNull();
+            assertThat(expired.getZone2()).isEqualTo("S");
+            assertThat(expired.getZone3()).isEqualTo("R");
+            assertThat(expired.getStandbyStatus()).isEqualTo(StandbyStatus.WAITING);
+            assertThat(expired.getTicketId()).isNull();
+            verify(standbyRepository).findMatchCandidate(session, "VIP", StandbyStatus.WAITING);
+            assertThat(count).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("매칭됐던 zone이 유일한 지망이었다면 전체 취소(CANCELLED)로 전환")
+        void expiredStandbyWithOnlyMatchedZoneCancelsWhole() {
+            // given - VIP 하나만 지망했고 그게 매칭(HELD)된 상태에서 결제 기한이 지남
+            Standby expired = Standby.apply(USER_ID, session, List.of("VIP"));
+            expired.hold("VIP", 1L);
+            given(standbyRepository.findAllByStandbyStatusAndExpiredAtLessThanEqual(eq(StandbyStatus.HELD), any()))
+                    .willReturn(List.of(expired));
+            given(standbyRepository.findMatchCandidate(session, "VIP", StandbyStatus.WAITING))
+                    .willReturn(Optional.empty());
+
+            // when
+            standbyService.expireHeldStandbys();
+
+            // then
+            assertThat(expired.getStandbyStatus()).isEqualTo(StandbyStatus.CANCELLED);
+        }
+
+        @Test
+        @DisplayName("만료 후 재매칭되면, 만료된 신청이 들고 있던 ticketId를 그대로 이어받아 ticket에 알림")
+        void expiredStandbyPropagatesTicketIdToNextCandidate() {
+            // given - 만료되는 standby가 ticketId=1을 들고 있었음
+            Long ticketId = 1L;
+            Standby expired = Standby.apply(USER_ID, session, List.of("VIP"));
+            expired.hold("VIP", ticketId);
+            given(standbyRepository.findAllByStandbyStatusAndExpiredAtLessThanEqual(eq(StandbyStatus.HELD), any()))
+                    .willReturn(List.of(expired));
+
+            Standby next = mock(Standby.class);
+            LocalDateTime expiredAt = LocalDateTime.now().plusMinutes(30);
+            given(next.getUserId()).willReturn(2L);
+            given(next.getExpiredAt()).willReturn(expiredAt);
+            given(standbyRepository.findMatchCandidate(session, "VIP", StandbyStatus.WAITING))
+                    .willReturn(Optional.of(next));
+
+            // when
+            standbyService.expireHeldStandbys();
+
+            // then - 새로 매칭된 next는 같은 ticketId로 hold되고, 그 ticketId 그대로 이벤트가 발행된다.
+            verify(next).hold("VIP", ticketId);
+            verify(eventPublisher)
+                    .publishEvent(new StandbyTicketEvent(ticketId, 2L, expiredAt));
         }
     }
 }

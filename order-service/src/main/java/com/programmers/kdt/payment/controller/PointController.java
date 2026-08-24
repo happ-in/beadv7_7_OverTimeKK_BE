@@ -10,10 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/points")
@@ -24,14 +21,14 @@ public class PointController {
 
     @GetMapping("/balance")
     public ApiResponse<GetPointBalanceResponse> getPointBalance(
-            @RequestParam Long userId
+            @RequestHeader("X-User-Id") Long userId
     ) {
         return ApiResponse.success(pointService.getBalance(userId));
     }
 
     @GetMapping
     public ApiResponse<Page<GetPointHistoryResponse>> getPointHistory(
-            @RequestParam Long userId,
+            @RequestHeader("X-User-Id") Long userId,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
         return ApiResponse.success(pointService.getPointLogHistory(userId, pageable));

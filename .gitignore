@@ -50,3 +50,6 @@ out/
 
 ## observability ##
 logs/
+
+# claude
+.claude/*

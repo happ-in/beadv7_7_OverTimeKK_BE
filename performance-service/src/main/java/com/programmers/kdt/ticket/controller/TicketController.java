@@ -13,7 +13,9 @@ import com.programmers.kdt.ticket.dto.SessionStartDateResponse;
 import com.programmers.kdt.ticket.dto.TicketZoneRequest;
 import com.programmers.kdt.ticket.dto.TicketZonesResponse;
 import com.programmers.kdt.ticket.dto.ValidateTicketHoldRequest;
-import com.programmers.kdt.ticket.service.ChangeTicketStatusService;
+import com.programmers.kdt.ticket.service.TicketHoldService;
+import com.programmers.kdt.ticket.service.TicketReleaseService;
+import com.programmers.kdt.ticket.service.TicketReserveService;
 import com.programmers.kdt.ticket.service.TicketService;
 import com.programmers.kdt.ticket.service.ValidateTicketHoldService;
 import jakarta.validation.Valid;
@@ -36,7 +38,9 @@ import java.util.List;
 public class TicketController {
 
     private final TicketService ticketService;
-    private final ChangeTicketStatusService changeTicketStatusService;
+    private final TicketHoldService ticketHoldService;
+    private final TicketReleaseService ticketReleaseService;
+    private final TicketReserveService ticketReserveService;
     private final ValidateTicketHoldService validateTicketHoldService;
 
     @PostMapping("/standby")
@@ -53,31 +57,31 @@ public class TicketController {
 
     @PutMapping("/status/hold")
     public ApiResponse<CheckTicketHoldAvailableResponse> checkTicketHoldAvailable(@Valid @RequestBody CheckTicketHoldAvailableRequest request) {
-        CheckTicketHoldAvailableResponse response = changeTicketStatusService.checkTicketHoldStatus(request);
+        CheckTicketHoldAvailableResponse response = ticketHoldService.checkTicketHoldStatus(request);
         return ApiResponse.success(response);
     }
 
     @PutMapping("/status/release")
     public ApiResponse<?> releaseHoldTicket(@Valid @RequestBody ReleaseTicketHoldRequest request) {
-        changeTicketStatusService.releaseHoldTicket(request);
+        ticketReleaseService.releaseHoldTicket(request);
         return ApiResponse.success(null);
     }
 
     @PutMapping("/status/canceled/release")
     public ApiResponse<?> releaseCanceledTicket(@Valid @RequestBody CancelTicketStatusRequest request) {
-        changeTicketStatusService.cancelReservedTicket(request);
+        ticketReleaseService.cancelReservedTicket(request);
         return ApiResponse.success(null);
     }
 
     @PutMapping("/status/reserved")
     public ApiResponse<?> reservedTicket(@Valid @RequestBody ReservedTicketRequest request) {
-        changeTicketStatusService.reservedTicket(request);
+        ticketReserveService.reservedTicket(request);
         return ApiResponse.success(null);
     }
 
     @PostMapping("/orders")
     public ApiResponse<List<OrderTicketResponse>> orderTickets(@Valid @RequestBody OrderTicketRequest request) {
-        return ApiResponse.success(ticketService.findOrderedTicketInfo(request.userId()));
+        return ApiResponse.success(ticketService.findOrderedTicketInfo(request.ticketIds()));
     }
 
     @PostMapping("/select/seat")

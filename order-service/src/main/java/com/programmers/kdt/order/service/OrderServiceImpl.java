@@ -43,17 +43,17 @@ public class OrderServiceImpl implements OrderService {
     // 주문 요청
     @Override
     @Transactional
-    public CreateOrderResponse createOrder(CreateOrderRequest request) {
+    public CreateOrderResponse createOrder(CreateOrderRequest request, Long userId) {
 
         // 티켓 검증
-        ValidateTicketRequest ticketRequest = ValidateTicketRequest.from(request);
+        ValidateTicketRequest ticketRequest = ValidateTicketRequest.from(request, userId);
         ticketClient.validateTicket(ticketRequest);
 
         // 주문 항목 생성 - 현재는 티켓 1매만 가능
         OrderItem item = OrderItem.create(request.ticketId(), request.price(), request.holdKey());
 
         // 주문 생성 및 저장 -- 티켓 만료 시각을 주문 만료 시각으로 설정
-        Order order = Order.create(request.userId(), List.of(item), request.expiredAt());
+        Order order = Order.create(userId, List.of(item), request.expiredAt());
         Order savedOrder = orderRepository.save(order);
 
         return CreateOrderResponse.from(savedOrder);
@@ -62,8 +62,9 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     // 결제 전 주문 취소
-    public CancelOrderResponse cancelPendingOrder(Long orderId){
+    public CancelOrderResponse cancelPendingOrder(Long orderId, Long userId){
         Order order = findOrder(orderId);
+        if(!userId.equals(order.getUserId())) throw new BusinessException(OrderErrorCode.ORDER_ACCESS_DENIED);
         order.cancelPending();
 
         publishTicketReleaseEvent(order);
@@ -119,8 +120,15 @@ public class OrderServiceImpl implements OrderService {
     // 결제 후 주문 취소
     @Override
     @Transactional
-    public CancelOrderResponse cancelCompletedOrder(Long orderId, CancelOrderRequest request) {
-        Order order = findOrder(orderId);
+    public CancelOrderResponse cancelCompletedOrder(Long orderId, Long userId, CancelOrderRequest request) {
+        Order order = findOrderForUpdate(orderId);
+
+        if(!userId.equals(order.getUserId())) throw new BusinessException(OrderErrorCode.ORDER_ACCESS_DENIED);
+      
+        // 이미 취소 접수된 주문의 재요청은 동일 응답을 반환
+        if (order.isCancelRequested()) {
+            return CancelOrderResponse.from(order);
+        }
 
         // 취소 가능한 주문인지 검증
         order.validateCancel();
@@ -128,30 +136,47 @@ public class OrderServiceImpl implements OrderService {
         // 결제 취소
         paymentService.refund(
                 order.getOrderId(),
-                new RefundPaymentRequest(request.reason())); // paymentService의 cancel메서드 파라미터 :orderId로 변경
+                new RefundPaymentRequest(request.reason()));
 
-        // 결제 취소 성공 -> 주문 취소 완료
-        order.cancelCompleted();
-
-        publishTicketCancelEvent(order);
+        // 환불 결과가 나오기 전까지는 취소 접수 상태와 티켓 예약을 유지
+        order.requestCancel();
 
         return CancelOrderResponse.from(order);
+    }
+
+    @Override
+    @Transactional
+    public void confirmCancellation(Long orderId) {
+        Order order = findOrderForUpdate(orderId);
+        if (order.confirmCancel()) {
+            publishTicketCancelEvent(order);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void revertCancellation(Long orderId) {
+        Order order = findOrderForUpdate(orderId);
+        order.revertCancel();
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<GetOrderHistoryResponse> getOrderHistory(Long userId) {
         List<Order> orders =
-                orderRepository.findByUserIdAndOrderStatusOrderByCreatedAtDesc(
+                orderRepository.findByUserIdAndOrderStatusInOrderByCreatedAtDesc(
                         userId,
-                        OrderStatus.COMPLETED
+                        List.of(OrderStatus.CANCELLED, OrderStatus.COMPLETED, OrderStatus.EXPIRED)
                 );
 
         if (orders.isEmpty()) {
             return List.of();
         }
 
-        List<TicketInfo> ticketInfos = ticketClient.getTickets(new OrderTicketRequest(userId));
+        List<Long> ticketIds = orders.stream()
+                .map(Order::getTicketId)
+                .toList();
+        List<TicketInfo> ticketInfos = ticketClient.getTickets(new OrderTicketRequest(ticketIds));
 
         Map<Long, TicketInfo> ticketInfoMap = ticketInfos.stream()
                 .collect(Collectors.toMap(
@@ -179,6 +204,11 @@ public class OrderServiceImpl implements OrderService {
         return orderRepository.findById(orderId)
                 .orElseThrow(()->
                         new BusinessException(OrderErrorCode.ORDER_NOT_FOUND));
+    }
+
+    private Order findOrderForUpdate(Long orderId) {
+        return orderRepository.findByIdForUpdate(orderId)
+                .orElseThrow(() -> new BusinessException(OrderErrorCode.ORDER_NOT_FOUND));
     }
 
     private void publishTicketReleaseEvent(Order order) {

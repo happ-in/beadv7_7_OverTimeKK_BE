@@ -267,10 +267,10 @@ class TicketApiClientTest {
                         """);
             });
 
-            List<TicketInfo> result = ticketApiClient.getTickets(new OrderTicketRequest(20L));
+            List<TicketInfo> result = ticketApiClient.getTickets(new OrderTicketRequest(List.of(10L)));
 
             assertThat(method.get()).isEqualTo("POST");
-            assertThat(body.get()).contains("\"userId\":20");
+            assertThat(body.get()).contains("\"ticketIds\":[10]");
             assertThat(result).containsExactly(
                     new TicketInfo(10L, "오버타임 콘서트", "VIP")
             );
@@ -286,7 +286,7 @@ class TicketApiClientTest {
             ));
 
             assertBusinessException(
-                    () -> ticketApiClient.getTickets(new OrderTicketRequest(20L)),
+                    () -> ticketApiClient.getTickets(new OrderTicketRequest(List.of(10L))),
                     OrderErrorCode.TICKET_INFO_RESPONSE_EMPTY
             );
         }
@@ -297,7 +297,7 @@ class TicketApiClientTest {
             registerErrorResponse("/api/tickets/orders", 500);
 
             assertBusinessException(
-                    () -> ticketApiClient.getTickets(new OrderTicketRequest(20L)),
+                    () -> ticketApiClient.getTickets(new OrderTicketRequest(List.of(10L))),
                     OrderErrorCode.TICKET_INFO_GET_FAILED
             );
         }

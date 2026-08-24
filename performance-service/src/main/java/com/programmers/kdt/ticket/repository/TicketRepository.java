@@ -4,15 +4,23 @@ import com.programmers.kdt.ticket.dto.OrderTicketResponse;
 import com.programmers.kdt.ticket.dto.TicketZoneResponse;
 import com.programmers.kdt.ticket.entity.Ticket;
 import com.programmers.kdt.ticket.entity.TicketStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface TicketRepository extends JpaRepository<Ticket, Long> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from Ticket t where t.ticketId = :ticketId")
+    Optional<Ticket> findByIdForUpdate(@Param("ticketId") Long ticketId);
+
     List<Ticket> findByTicketStatusAndHoldExpiredAtBefore(TicketStatus ticketStatus, LocalDateTime dateTime);
 
     // 요청 zone 중 아직 잔여 좌석(AVAILABLE)이 남아있는 zone 목록.
@@ -78,11 +86,10 @@ select p.performanceId
     @Query("""
            select new com.programmers.kdt.ticket.dto.OrderTicketResponse(t.ticketId, p.title, t.zone)
              from Ticket t, Performance p
-            where t.buyUserId = :userId
+            where t.ticketId in :ticketIds
               and t.performanceId = p.performanceId
-           order by p.endDate desc
            """)
-    List<OrderTicketResponse> findTicketsByBuyUserId(@Param("userId") Long userId);
+    List<OrderTicketResponse> findTicketInfoByTicketIds(@Param("ticketIds") List<Long> ticketIds);
 
     @Query("""
             select new com.programmers.kdt.ticket.dto.TicketZoneResponse(t.ticketId, t.seatRow, t.seatNum, t.ticketStatus)

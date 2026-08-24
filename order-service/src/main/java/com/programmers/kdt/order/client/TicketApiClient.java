@@ -118,7 +118,7 @@ public class TicketApiClient implements TicketClient {
             return response.data();
 
         } catch (RestClientException e) {
-            log.error("티켓 정보 조회 실패 userId={}", request.userId(), e);
+            log.error("티켓 정보 조회 실패 ticketIds={}", request.ticketIds(), e);
             throw new BusinessException(OrderErrorCode.TICKET_INFO_GET_FAILED);
         }
     }
