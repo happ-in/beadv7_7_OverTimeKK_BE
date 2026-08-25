@@ -38,7 +38,6 @@ import java.util.UUID;
 public class UserService {
 
     private final UserRepository userRepository;
-    private final UserQueryService userQueryService;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
     private final RefreshTokenStore refreshTokenStore;
@@ -71,13 +70,10 @@ public class UserService {
         return UserResponse.from(saved);
     }
 
-    /**
-     * DB 커넥션은 userQueryService.getByUsername() 조회 한 번만 점유한다.
-     * 비밀번호 검증(BCrypt), JWT 발급, Redis 저장은 DB와 무관하므로 트랜잭션 밖에서 처리해
-     * 부하 상황에서 커넥션 점유 시간을 최소화한다.
-     */
+    @Transactional(readOnly = true)
     public LoginResponse login(LoginRequest request) {
-        User user = userQueryService.getByUsername(request.username());
+        User user = userRepository.findByUsername(request.username())
+                .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
 
         if (!passwordEncoder.matches(request.password(), user.getPassword())) {
             throw new BusinessException(UserErrorCode.INVALID_PASSWORD);
@@ -93,11 +89,7 @@ public class UserService {
      * refresh token 로테이션: 사용된 토큰은 즉시 폐기하고 새 access/refresh token 쌍을 발급한다.
      * 이미 폐기된(예전) 토큰이 다시 들어오면 탈취로 간주해 해당 사용자의 세션을 강제 무효화한다.
      */
-    /**
-     * DB 커넥션은 userQueryService.getById() 조회 한 번만 점유한다.
-     * 토큰 검증/생성과 Redis 로테이션은 DB와 무관하므로 트랜잭션 밖에서 처리해
-     * 부하 상황에서 커넥션 점유 시간을 최소화한다.
-     */
+    @Transactional(readOnly = true)
     public LoginResponse refresh(RefreshTokenRequest request) {
         String token = request.refreshToken();
         try {
@@ -123,7 +115,8 @@ public class UserService {
             throw new BusinessException(UserErrorCode.INVALID_REFRESH_TOKEN);
         }
 
-        User user = userQueryService.getById(userId);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
         if (user.isWithdrawn()) {
             refreshTokenStore.delete(userId);
             throw new BusinessException(UserErrorCode.WITHDRAWN_USER);

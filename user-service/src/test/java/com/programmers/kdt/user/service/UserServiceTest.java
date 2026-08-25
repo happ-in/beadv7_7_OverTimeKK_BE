@@ -56,9 +56,6 @@ class UserServiceTest {
     @Mock
     private EmailVerificationService emailVerificationService;
 
-    @Mock
-    private UserQueryService userQueryService;
-
     @InjectMocks
     private UserService userService;
 
@@ -131,7 +128,7 @@ class UserServiceTest {
         User user = User.signUpIndividual("user1", "user1@example.com", "encodedPassword");
         ReflectionTestUtils.setField(user, "userId", 1L);
 
-        given(userQueryService.getByUsername(request.username())).willReturn(user);
+        given(userRepository.findByUsername(request.username())).willReturn(Optional.of(user));
         given(passwordEncoder.matches(request.password(), user.getPassword())).willReturn(true);
         given(jwtProvider.createToken(user.getUserId(), user.getUsername(), "INDIVIDUAL")).willReturn("issued-access-token");
         given(jwtProvider.createRefreshToken(any(), any(), anyString())).willReturn("issued-refresh-token");
@@ -149,7 +146,7 @@ class UserServiceTest {
         User user = User.signUpBusiness("biz1", "biz1@example.com", "encodedPassword", "회사이름", "123-45-67890");
         ReflectionTestUtils.setField(user, "userId", 1L);
 
-        given(userQueryService.getByUsername(request.username())).willReturn(user);
+        given(userRepository.findByUsername(request.username())).willReturn(Optional.of(user));
         given(passwordEncoder.matches(request.password(), user.getPassword())).willReturn(true);
         given(jwtProvider.createToken(user.getUserId(), user.getUsername(), "BUSINESS")).willReturn("issued-access-token");
         given(jwtProvider.createRefreshToken(any(), any(), anyString())).willReturn("issued-refresh-token");
@@ -163,8 +160,7 @@ class UserServiceTest {
     @Test
     void 존재하지_않는_아이디로_로그인시_예외() {
         LoginRequest request = new LoginRequest("noSuchUser", "password123");
-        given(userQueryService.getByUsername(request.username()))
-                .willThrow(new BusinessException(UserErrorCode.USER_NOT_FOUND));
+        given(userRepository.findByUsername(request.username())).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> userService.login(request))
                 .isInstanceOf(BusinessException.class)
@@ -176,7 +172,7 @@ class UserServiceTest {
         LoginRequest request = new LoginRequest("user1", "wrongPassword");
         User user = User.signUpIndividual("user1", "user1@example.com", "encodedPassword");
 
-        given(userQueryService.getByUsername(request.username())).willReturn(user);
+        given(userRepository.findByUsername(request.username())).willReturn(Optional.of(user));
         given(passwordEncoder.matches(request.password(), user.getPassword())).willReturn(false);
 
         assertThatThrownBy(() -> userService.login(request))
@@ -190,7 +186,7 @@ class UserServiceTest {
         User user = User.signUpIndividual("user1", "user1@example.com", "encodedPassword");
         ReflectionTestUtils.setField(user, "status", UserStatus.WITHDRAWN);
 
-        given(userQueryService.getByUsername(request.username())).willReturn(user);
+        given(userRepository.findByUsername(request.username())).willReturn(Optional.of(user));
         given(passwordEncoder.matches(request.password(), user.getPassword())).willReturn(true);
 
         assertThatThrownBy(() -> userService.login(request))
@@ -262,7 +258,7 @@ class UserServiceTest {
         given(jwtProvider.getTokenId(request.refreshToken())).willReturn("old-token-id");
         given(refreshTokenStore.compareAndRotate(eq(1L), eq("old-token-id"), anyString()))
                 .willReturn(RefreshTokenStore.RotateResult.ROTATED);
-        given(userQueryService.getById(1L)).willReturn(user);
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
         given(jwtProvider.createToken(1L, "user1", "INDIVIDUAL")).willReturn("new-access-token");
         given(jwtProvider.createRefreshToken(any(), any(), anyString())).willReturn("new-refresh-token");
 
@@ -318,7 +314,7 @@ class UserServiceTest {
         given(jwtProvider.getTokenId(request.refreshToken())).willReturn("token-id");
         given(refreshTokenStore.compareAndRotate(eq(1L), eq("token-id"), anyString()))
                 .willReturn(RefreshTokenStore.RotateResult.ROTATED);
-        given(userQueryService.getById(1L)).willReturn(user);
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
 
         assertThatThrownBy(() -> userService.refresh(request))
                 .isInstanceOf(BusinessException.class)
