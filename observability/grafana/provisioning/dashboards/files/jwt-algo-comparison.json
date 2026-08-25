@@ -36,10 +36,59 @@
   },
   "panels": [
     {
+      "id": 30,
+      "type": "row",
+      "title": "대기열 현황 — 몇 명이 쌓이면 대기가 발생하고, 얼마나 기다리는가",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false
+    },
+    {
+      "id": 31,
+      "type": "timeseries",
+      "title": "대기 인원 / 처리 중 인원",
+      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 1 },
+      "targets": [
+        {
+          "expr": "login_queue_size",
+          "legendFormat": "대기 인원",
+          "refId": "A"
+        },
+        {
+          "expr": "login_active_count",
+          "legendFormat": "처리 중 인원",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 12 } }, "overrides": [] },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["max", "last"] } }
+    },
+    {
+      "id": 32,
+      "type": "timeseries",
+      "title": "대기열 실제 대기시간 (ms, enter~입장)",
+      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 1 },
+      "targets": [
+        {
+          "expr": "sum by (algo, phase, rate) (avg_over_time(k6_queue_wait_duration_avg{algo=~\"$algo\", phase=~\"$phase\"}[30s]))",
+          "legendFormat": "avg {{algo}} / rate={{rate}}/s",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (algo, phase, rate) (avg_over_time(k6_queue_wait_duration_p95{algo=~\"$algo\", phase=~\"$phase\"}[30s]))",
+          "legendFormat": "p95 {{algo}} / rate={{rate}}/s",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ms", "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 12 } }, "overrides": [] },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["max", "last"] } }
+    },
+    {
       "id": 1,
       "type": "row",
       "title": "병목 변곡점 — 처리량이 꺾이고 지연시간이 튀는 VU는 몇 명인가",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 10 },
       "collapsed": false
     },
     {
@@ -47,7 +96,7 @@
       "type": "timeseries",
       "title": "처리량 (req/s, 성공+실패 전체) — algo/phase별",
       "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 1 },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 11 },
       "targets": [
         {
           "expr": "sum by (algo, phase, vus) (rate(k6_http_reqs_total{algo=~\"$algo\", phase=~\"$phase\"}[30s]))",
@@ -55,26 +104,31 @@
           "refId": "A"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "fillOpacity": 12 } }, "overrides": [] },
+      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 12 } }, "overrides": [] },
       "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["max"] } }
     },
     {
       "id": 3,
       "type": "timeseries",
-      "title": "p95 응답시간 (ms, 성공 응답만) — 1000ms 기준선",
+      "title": "p95/p99 응답시간 (ms, 성공 응답만) — 1000ms 기준선",
       "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
       "gridPos": { "h": 9, "w": 12, "x": 12, "y": 1 },
       "targets": [
         {
           "expr": "sum by (algo, phase, vus) (avg_over_time(k6_http_req_duration_p95{algo=~\"$algo\", phase=~\"$phase\", status=\"200\"}[30s]))",
-          "legendFormat": "{{algo}} / {{phase}} / vus={{vus}}",
+          "legendFormat": "p95 {{algo}} / {{phase}} / vus={{vus}}",
           "refId": "A"
+        },
+        {
+          "expr": "sum by (algo, phase, vus) (avg_over_time(k6_http_req_duration_p99{algo=~\"$algo\", phase=~\"$phase\", status=\"200\"}[30s]))",
+          "legendFormat": "p99 {{algo}} / {{phase}} / vus={{vus}}",
+          "refId": "B"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "ms",
-          "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "fillOpacity": 12, "thresholdsStyle": { "mode": "line" } },
+          "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 12, "thresholdsStyle": { "mode": "line" } },
           "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1000 } ] }
         },
         "overrides": []
@@ -160,7 +214,7 @@
           "fieldConfig": {
             "defaults": {
               "unit": "percent", "min": 0, "max": 100,
-              "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "spanNulls": false, "fillOpacity": 10 }
+              "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "spanNulls": false, "fillOpacity": 10 }
             },
             "overrides": []
           },
