@@ -96,7 +96,8 @@
           "range": true,
           "refId": "A"
         }
-      ]
+      ],
+      "interval": "1s"
     },
     {
       "id": 3,
@@ -158,7 +159,8 @@
           "range": true,
           "refId": "A"
         }
-      ]
+      ],
+      "interval": "1s"
     },
     {
       "id": 4,
@@ -224,7 +226,8 @@
           "range": true,
           "refId": "A"
         }
-      ]
+      ],
+      "interval": "1s"
     },
     {
       "id": 5,
@@ -286,7 +289,8 @@
           "range": true,
           "refId": "A"
         }
-      ]
+      ],
+      "interval": "1s"
     },
     {
       "id": 6,
@@ -425,7 +429,8 @@
           "range": true,
           "refId": "E"
         }
-      ]
+      ],
+      "interval": "1s"
     },
     {
       "id": 7,
@@ -531,7 +536,8 @@
           "range": true,
           "refId": "B"
         }
-      ]
+      ],
+      "interval": "1s"
     },
     {
       "id": 8,
@@ -637,7 +643,8 @@
           "range": true,
           "refId": "B"
         }
-      ]
+      ],
+      "interval": "1s"
     },
     {
       "id": 9,
@@ -743,7 +750,8 @@
           "range": true,
           "refId": "B"
         }
-      ]
+      ],
+      "interval": "1s"
     },
     {
       "id": 10,
@@ -838,7 +846,8 @@
           "range": true,
           "refId": "A"
         }
-      ]
+      ],
+      "interval": "1s"
     }
   ],
   "refresh": "10s",
