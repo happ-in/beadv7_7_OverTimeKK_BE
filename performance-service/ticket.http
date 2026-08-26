@@ -8,3 +8,13 @@ Content-Type: application/json
   "price": 150000,
   "holdKey": "overtimekk"
 }
+
+### 공연상세 > 구간조회
+POST http://localhost:8083/api/tickets/select/seat
+Content-Type: application/json
+
+{
+  "performanceId": 3,
+  "sessionNum" : 2,
+  "zone" : "VIP"
+}
