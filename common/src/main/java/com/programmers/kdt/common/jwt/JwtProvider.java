@@ -4,18 +4,18 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
-import java.security.PrivateKey;
-import java.security.PublicKey;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
 /**
  * User 엔티티/UserRepository에 의존하지 않는 순수 JWT 발급/검증 컴포넌트.
  * order/performance-service에서도 재사용하도록 common으로 이동함.
- * jwt.algorithm 설정에 따라 HS384(대칭키) / RS256(비대칭키)로 동작한다.
+ * HS384(대칭키)로 서명/검증한다 (RS256은 검토 후 미채택 — JWT_ALGORITHM_DECISION.md 참고).
  */
 @Component
 public class JwtProvider {
@@ -27,14 +27,14 @@ public class JwtProvider {
     private static final String TYPE_ACCESS = "access";
     private static final String TYPE_REFRESH = "refresh";
 
-    private final JwtKeyMaterial keyMaterial;
+    private final SecretKey key;
     private final long expirationMillis;
     private final long refreshExpirationMillis;
 
-    public JwtProvider(JwtKeyMaterial keyMaterial,
-                       @Value("${jwt.expiration-millis}") long expirationMillis,
-                       @Value("${jwt.refresh-expiration-millis}") long refreshExpirationMillis) {
-        this.keyMaterial = keyMaterial;
+    public JwtProvider(@Value("${jwt.secret}") String secret,
+                        @Value("${jwt.expiration-millis}") long expirationMillis,
+                        @Value("${jwt.refresh-expiration-millis}") long refreshExpirationMillis) {
+        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expirationMillis = expirationMillis;
         this.refreshExpirationMillis = refreshExpirationMillis;
     }
@@ -43,6 +43,11 @@ public class JwtProvider {
         return buildToken(userId, username, role, TYPE_ACCESS, expirationMillis, null);
     }
 
+    /**
+     * refresh token은 role을 담지 않는다 — refresh 시점에 DB에서 최신 사용자 정보를 다시 조회해 role을 반영하므로,
+     * 토큰 자체에 실어봤자 신뢰할 값이 아니다.
+     * @param tokenId 재발급(로테이션) 시 이전에 발급된 refresh token과 구분하기 위한 식별자(jti). 재사용 탐지에 사용.
+     */
     public String createRefreshToken(Long userId, String username, String tokenId) {
         return buildToken(userId, username, null, TYPE_REFRESH, refreshExpirationMillis, tokenId);
     }
@@ -67,6 +72,9 @@ public class JwtProvider {
         return TYPE_REFRESH.equals(parseClaims(token).get(CLAIM_TYPE, String.class));
     }
 
+    /**
+     * @throws JwtException 서명 위조, 만료, 형식 오류 등 토큰이 유효하지 않은 모든 경우
+     */
     public void validateToken(String token) {
         parseClaims(token);
     }
@@ -87,22 +95,14 @@ public class JwtProvider {
         if (tokenId != null) {
             builder.id(tokenId);
         }
-        return sign(builder);
-    }
-
-    private String sign(JwtBuilder builder) {
-        return switch (keyMaterial.algorithm()) {
-            case HS384 -> builder.signWith((SecretKey) keyMaterial.signingKey(), Jwts.SIG.HS384).compact();
-            case RS256 -> builder.signWith((PrivateKey) keyMaterial.signingKey(), Jwts.SIG.RS256).compact();
-        };
+        return builder.signWith(key, Jwts.SIG.HS384).compact();
     }
 
     private Claims parseClaims(String token) {
-        return switch (keyMaterial.algorithm()) {
-            case HS384 -> Jwts.parser().verifyWith((SecretKey) keyMaterial.verificationKey())
-                    .build().parseSignedClaims(token).getPayload();
-            case RS256 -> Jwts.parser().verifyWith((PublicKey) keyMaterial.verificationKey())
-                    .build().parseSignedClaims(token).getPayload();
-        };
+        return Jwts.parser()
+                .verifyWith(key)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
     }
 }

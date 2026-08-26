@@ -29,6 +29,7 @@ public class LoginQueueService {
 
     private static final String ACTIVE_KEY = "login:active";
     private static final String QUEUE_KEY = "login:queue";
+    private static final String CONSUMED_KEY_PREFIX = "login:consumed:";
 
     /**
      * 만료 안 된 활성 인원 수가 정원 미만이면 즉시 활성 ZSET에 등록(만료시각=now+ttl)하고,
@@ -55,6 +56,26 @@ public class LoginQueueService {
      * 활성 ZSET으로 옮긴다. 대기열 score도 만료시각 기준이라 ttl이 동일한 이상 진입 순서와
      * 만료 순서가 같아 FIFO 순서는 그대로 유지된다.
      */
+    /**
+     * 입장권을 실제 로그인 처리 직전에 "1회만" 통과시키기 위한 원자적 소모(consume) 스크립트.
+     * ACTIVE_KEY에 아직 만료 안 된 멤버로 있는지 확인한 뒤, 별도의 소모 마커 키를 SET NX로 찍어서
+     * 동일 토큰으로 동시에 여러 요청이 들어와도 오직 하나만 통과하도록 막는다.
+     * (ACTIVE_KEY 자체에서는 지우지 않는다 — release() 전까지는 여전히 "처리 중"으로 카운트돼야
+     * 정원 계산이 정확하기 때문. 소모 마커만 별도로 둔다.)
+     */
+    private static final RedisScript<Long> CONSUME_SCRIPT = new DefaultRedisScript<>("""
+            local now = tonumber(ARGV[2])
+            local score = redis.call('ZSCORE', KEYS[1], ARGV[1])
+            if not score or tonumber(score) <= now then
+                return 0
+            end
+            local claimed = redis.call('SET', KEYS[2], '1', 'NX', 'PX', ARGV[3])
+            if not claimed then
+                return 0
+            end
+            return 1
+            """, Long.class);
+
     private static final RedisScript<List> PROMOTE_SCRIPT = new DefaultRedisScript<>("""
             local now = tonumber(ARGV[2])
             redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', now)
@@ -137,14 +158,30 @@ public class LoginQueueService {
      */
     public void release(String token) {
         redisTemplate.opsForZSet().remove(ACTIVE_KEY, token);
+        redisTemplate.delete(CONSUMED_KEY_PREFIX + token);
     }
 
     /**
-     * 입장권이 유효한지(대기열을 거쳐 입장 허가되었고, 아직 만료 전인지) 확인한다.
+     * 입장권이 유효한지(대기열을 거쳐 입장 허가되었고, 아직 만료 전인지)만 확인한다.
+     * 소모하지 않으므로 대기열 상태 폴링(status)처럼 여러 번 호출해도 안전하다.
      */
     public boolean isAdmitted(String token) {
         Double expiry = redisTemplate.opsForZSet().score(ACTIVE_KEY, token);
         return expiry != null && expiry > now();
+    }
+
+    /**
+     * 실제 로그인 처리 직전에 "정확히 1번만" 호출해야 하는 소모성 확인.
+     * 입장권이 유효하면서 아직 소모되지 않았을 때만 원자적으로 소모 처리하고 true를 반환한다.
+     * 같은 토큰으로 release() 전에 여러 요청이 동시에 들어와도 그중 하나만 통과시켜,
+     * 대기열 정원(maxConcurrent)을 토큰 재사용으로 우회하는 것을 막는다.
+     */
+    public boolean consumeAdmission(String token) {
+        String consumedKey = CONSUMED_KEY_PREFIX + token;
+        Long result = redisTemplate.execute(CONSUME_SCRIPT,
+                List.of(ACTIVE_KEY, consumedKey),
+                token, String.valueOf(now()), String.valueOf(admissionTtlMillis));
+        return result != null && result == 1L;
     }
 
     @Scheduled(fixedDelay = 500)

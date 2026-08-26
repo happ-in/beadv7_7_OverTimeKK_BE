@@ -2,11 +2,7 @@ package com.programmers.kdt.common.jwt;
 
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
-import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
-
-import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -15,12 +11,7 @@ class JwtProviderTest {
 
     private static final String SECRET = "test-secret-key-for-jwt-provider-unit-test-32bytes+";
 
-    private final JwtProvider jwtProvider = new JwtProvider(hs384(SECRET), 3600_000L, 604_800_000L);
-
-    private static JwtKeyMaterial hs384(String secret) {
-        SecretKey key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
-        return new JwtKeyMaterial(JwtAlgorithm.HS384, key, key);
-    }
+    private final JwtProvider jwtProvider = new JwtProvider(SECRET, 3600_000L, 604_800_000L);
 
     @Test
     void 토큰_발급_후_검증하면_원래_담았던_정보가_그대로_나온다() {
@@ -35,7 +26,7 @@ class JwtProviderTest {
 
     @Test
     void 만료된_토큰을_검증하면_예외가_발생한다() {
-        JwtProvider expiredTokenProvider = new JwtProvider(hs384(SECRET), -1000L, 604_800_000L);
+        JwtProvider expiredTokenProvider = new JwtProvider(SECRET, -1000L, 604_800_000L);
         String expiredToken = expiredTokenProvider.createToken(1L, "user1", "INDIVIDUAL");
 
         assertThatThrownBy(() -> jwtProvider.validateToken(expiredToken))
@@ -53,7 +44,7 @@ class JwtProviderTest {
 
     @Test
     void 다른_secret으로_서명된_토큰을_검증하면_예외가_발생한다() {
-        JwtProvider otherProvider = new JwtProvider(hs384("other-secret-key-completely-different-32bytes!!"), 3600_000L, 604_800_000L);
+        JwtProvider otherProvider = new JwtProvider("other-secret-key-completely-different-48bytes-min!!", 3600_000L, 604_800_000L);
         String token = otherProvider.createToken(1L, "user1", "INDIVIDUAL");
 
         assertThatThrownBy(() -> jwtProvider.validateToken(token))

@@ -76,7 +76,7 @@ public class UserController {
     @PostMapping("/login")
     public ApiResponse<LoginResponse> login(@RequestHeader(ADMISSION_TOKEN_HEADER) String admissionToken,
                                              @Valid @RequestBody LoginRequest request) {
-        if (!loginQueueService.isAdmitted(admissionToken)) {
+        if (!loginQueueService.consumeAdmission(admissionToken)) {
             throw new BusinessException(CommonErrorCode.FORBIDDEN);
         }
         try {
