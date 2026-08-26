@@ -5,6 +5,7 @@ import com.programmers.kdt.common.constant.OrderTypeCode;
 import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.common.exception.CommonErrorCode;
 import com.programmers.kdt.common.util.TicketKeyGenerator;
+import com.programmers.kdt.ticket.cache.TicketZoneCacheStore;
 import com.programmers.kdt.ticket.dto.CheckTicketHoldAvailableRequest;
 import com.programmers.kdt.ticket.dto.CheckTicketHoldAvailableResponse;
 import com.programmers.kdt.ticket.entity.Ticket;
@@ -23,17 +24,19 @@ import java.time.LocalDateTime;
 public class TicketHoldServiceImpl implements TicketHoldService {
 
     private final TicketRepository ticketRepository;
+    private final TicketZoneCacheStore ticketZoneCacheStore;
 
     @Override
     @Transactional
-    public CheckTicketHoldAvailableResponse checkTicketHoldStatus(CheckTicketHoldAvailableRequest request) {
+    public CheckTicketHoldAvailableResponse checkTicketHoldStatus(CheckTicketHoldAvailableRequest request, Long userId) {
         Ticket ticket = getTicketLock(request.ticketId());
         LocalDateTime holdExpiredAt = LocalDateTime.now().plusMinutes(TimeLimits.orderHoldTicket5Min);
         String holdKey = TicketKeyGenerator.generate();
 
-        validateTicketConditionForHold(request.orderType(), ticket, request.userId());
+        validateTicketConditionForHold(request.orderType(), ticket, userId);
 
-        ticket.holdTicket(request.userId(), holdExpiredAt, holdKey);
+        ticket.holdTicket(userId, holdExpiredAt, holdKey);
+        ticketZoneCacheStore.markHold(ticket);
         return new CheckTicketHoldAvailableResponse(ticket.getTicketId(), ticket.getPrice(), holdExpiredAt, holdKey);
     }
 

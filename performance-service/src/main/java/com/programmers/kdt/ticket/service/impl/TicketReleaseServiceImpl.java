@@ -2,6 +2,7 @@ package com.programmers.kdt.ticket.service.impl;
 
 import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.standby.event.StandbyCheckResponseEvent;
+import com.programmers.kdt.ticket.cache.TicketZoneCacheStore;
 import com.programmers.kdt.ticket.dto.CancelTicketStatusRequest;
 import com.programmers.kdt.ticket.dto.ReleaseTicketHoldRequest;
 import com.programmers.kdt.ticket.dto.SessionZoneKey;
@@ -29,6 +30,7 @@ public class TicketReleaseServiceImpl implements TicketReleaseService {
 
     private final TicketRepository ticketRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final TicketZoneCacheStore ticketZoneCacheStore;
 
     @Override
     @Transactional
@@ -54,6 +56,7 @@ public class TicketReleaseServiceImpl implements TicketReleaseService {
         if (!event.existsStandby()) {
             Ticket ticket = getTicket(event.ticketId());
             ticket.releaseToAvailable();
+            ticketZoneCacheStore.markAvailable(ticket);
         }
     }
 
@@ -87,6 +90,7 @@ public class TicketReleaseServiceImpl implements TicketReleaseService {
 
         if (existsAvailableInZone) {
             ticket.releaseToAvailable();
+            ticketZoneCacheStore.markAvailable(ticket);
         } else {
             eventPublisher.publishEvent(new StandbyCheckRequestEvent(ticket.getPerformanceId(), ticket.getSessionNum(), ticket.getZone(), ticket.getTicketId()));
         }

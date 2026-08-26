@@ -1,5 +1,6 @@
 package com.programmers.kdt.ticket.service.impl;
 
+import com.programmers.kdt.ticket.cache.TicketZoneCacheStore;
 import com.programmers.kdt.ticket.dto.SessionZoneKey;
 import com.programmers.kdt.ticket.entity.Ticket;
 import com.programmers.kdt.ticket.entity.TicketStatus;
@@ -34,6 +35,7 @@ class TicketReleaseServiceImplTest {
 
     @Mock private TicketRepository ticketRepository;
     @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private TicketZoneCacheStore ticketZoneCacheStore;
 
     @InjectMocks private TicketReleaseServiceImpl ticketReleaseService;
 
