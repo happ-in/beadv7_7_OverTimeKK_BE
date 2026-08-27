@@ -102,11 +102,11 @@ class OrderCancellationConcurrencyIntegrationTest {
 
         Future<CancelOrderResponse> first = executor.submit(() -> {
             start.await();
-            return orderService.cancelCompletedOrder(orderId, new CancelOrderRequest("단순 변심"));
+            return orderService.cancelCompletedOrder(orderId, 1L, new CancelOrderRequest("단순 변심"));
         });
         Future<CancelOrderResponse> second = executor.submit(() -> {
             start.await();
-            return orderService.cancelCompletedOrder(orderId, new CancelOrderRequest("단순 변심"));
+            return orderService.cancelCompletedOrder(orderId, 1L, new CancelOrderRequest("단순 변심"));
         });
 
         start.countDown();
