@@ -92,7 +92,9 @@ select p.performanceId
     List<OrderTicketResponse> findTicketInfoByTicketIds(@Param("ticketIds") List<Long> ticketIds);
 
     @Query("""
-            select new com.programmers.kdt.ticket.dto.TicketZoneResponse(t.ticketId, t.seatRow, t.seatNum, t.ticketStatus)
+            select new com.programmers.kdt.ticket.dto.TicketZoneResponse(
+                       t.ticketId, t.seatRow, t.seatNum,
+                       case when t.ticketStatus = com.programmers.kdt.ticket.entity.TicketStatus.AVAILABLE then 0 else 1 end)
               from Ticket t
              where t.performanceId = :performanceId
                and t.sessionNum = :sessionNum

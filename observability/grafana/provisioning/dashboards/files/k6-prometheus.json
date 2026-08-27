@@ -2027,7 +2027,10 @@
         "type": "query"
       },
       {
-        "current": {},
+        "current": {
+          "text": "p99",
+          "value": "p99"
+        },
         "datasource": {
           "type": "prometheus",
           "uid": "prometheus-uid"

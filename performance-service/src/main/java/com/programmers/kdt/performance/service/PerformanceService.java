@@ -8,10 +8,12 @@ import com.programmers.kdt.performance.dto.PerformanceResponse;
 import java.util.List;
 import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.performance.entity.Performance;
+import com.programmers.kdt.performance.event.PerformanceSeatPriceCacheEvictEvent;
 import com.programmers.kdt.performance.exception.PerformanceErrorCode;
 import com.programmers.kdt.performance.repository.PerformanceRepository;
 import com.programmers.kdt.performance.repository.PerformanceSeatPriceRepository;
 import com.programmers.kdt.performance.repository.PerformanceSessionRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,6 +26,7 @@ public class PerformanceService {
     private final PerformanceSessionRepository performanceSessionRepository;
     private final PerformanceSeatPriceRepository performanceSeatPriceRepository;
     private final S3ImageService imageService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public PerformanceResponse registerPerformance(PerformanceRequest request, Long sellerId) {
@@ -63,9 +66,11 @@ public class PerformanceService {
     public void deletePerformance(Long performanceId, Long sellerId) {
         Performance performance = getPerformance(performanceId);
         validateOwner(performance, sellerId);
+        List<String> zones = performanceSeatPriceRepository.findZonesByPerformance_PerformanceId(performanceId);
         performanceSeatPriceRepository.deleteByPerformance_PerformanceId(performanceId);
         performanceSessionRepository.deleteByPerformanceSessionId_PerformanceId(performanceId);
         performanceRepository.delete(performance);
+        eventPublisher.publishEvent(new PerformanceSeatPriceCacheEvictEvent(performanceId, zones));
         // TODO: order-service에 판매/주문 존재 확인 또는 취소 이벤트 발행에 대해서는 논의사항(어느정도의갚아를가져갈지)
     }
 
