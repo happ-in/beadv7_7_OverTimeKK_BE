@@ -1,11 +1,10 @@
 package com.programmers.kdt.ticket.dto;
 
-import com.programmers.kdt.ticket.entity.TicketStatus;
-
+// ticketStatus: 0 = 선택 가능(AVAILABLE), 1 = 선택 불가(그 외 상태)
 public record TicketZoneResponse(
         Long ticketId,
         String seatRow,
         String seatNum,
-        TicketStatus ticketStatus
+        int ticketStatus
 ) {
 }
