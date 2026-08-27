@@ -17,7 +17,7 @@ public class PaymentFailEventListener {
 
     private final OrderService orderService;
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handle(PaymentFailEvent event){
         log.info("결제 실패 이벤트 수신: orderId={}, paymentId={}, reason={}", event.orderId(), event.paymentId(), event.reason());

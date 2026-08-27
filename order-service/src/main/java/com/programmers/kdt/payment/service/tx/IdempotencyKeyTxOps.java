@@ -1,4 +1,4 @@
-package com.programmers.kdt.payment.service;
+package com.programmers.kdt.payment.service.tx;
 
 import com.programmers.kdt.payment.entity.key.IdempotencyKey;
 import com.programmers.kdt.payment.repository.IdempotencyKeyRepository;
