@@ -15,8 +15,7 @@ import java.util.Date;
 /**
  * User 엔티티/UserRepository에 의존하지 않는 순수 JWT 발급/검증 컴포넌트.
  * order/performance-service에서도 재사용하도록 common으로 이동함.
- * 이 빈이 만들어지려면 jwt.secret/jwt.expiration-millis/jwt.refresh-expiration-millis가
- * 해당 서비스의 application.properties에 있어야 함.
+ * HS384(대칭키)로 서명/검증한다 (RS256은 검토 후 미채택 — JWT_ALGORITHM_DECISION.md 참고).
  */
 @Component
 public class JwtProvider {
@@ -96,7 +95,7 @@ public class JwtProvider {
         if (tokenId != null) {
             builder.id(tokenId);
         }
-        return builder.signWith(key).compact();
+        return builder.signWith(key, Jwts.SIG.HS384).compact();
     }
 
     private Claims parseClaims(String token) {
