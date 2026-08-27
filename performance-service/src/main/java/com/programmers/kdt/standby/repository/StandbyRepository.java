@@ -3,7 +3,9 @@ package com.programmers.kdt.standby.repository;
 import com.programmers.kdt.performance.entity.PerformanceSession;
 import com.programmers.kdt.standby.entity.Standby;
 import com.programmers.kdt.standby.entity.StandbyStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
@@ -26,6 +28,7 @@ public interface StandbyRepository extends JpaRepository<Standby, Long> {
     List<Standby> findByUserIdOrderByReservedAtDesc(@Param("userId") Long userId);
 
     // zone을 지망(zone1/zone2/zone3)에 담아 대기 중인 사람 중 신청 순서(FIFO)가 가장 빠른 1명. 매칭 대상 선정용.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from Standby s " +
             "where s.performanceSession = :session " +
             "and s.standbyStatus = :status " +
@@ -35,6 +38,11 @@ public interface StandbyRepository extends JpaRepository<Standby, Long> {
     Optional<Standby> findMatchCandidate(@Param("session") PerformanceSession session,
                                           @Param("zone") String zone,
                                           @Param("status") StandbyStatus status);
+
+    // cancelStandby/cancelZone 전용 락 조회
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select s from Standby s where s.standbyId = :standbyId")
+    Optional<Standby> findByIdForUpdate(@Param("standbyId") Long standbyId);
 
     @Query("select count(s) from Standby s " +
             "where s.performanceSession = :session " +
