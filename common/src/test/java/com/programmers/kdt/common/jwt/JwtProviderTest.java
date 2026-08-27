@@ -44,7 +44,7 @@ class JwtProviderTest {
 
     @Test
     void 다른_secret으로_서명된_토큰을_검증하면_예외가_발생한다() {
-        JwtProvider otherProvider = new JwtProvider("other-secret-key-completely-different-32bytes!!", 3600_000L, 604_800_000L);
+        JwtProvider otherProvider = new JwtProvider("other-secret-key-completely-different-48bytes-min!!", 3600_000L, 604_800_000L);
         String token = otherProvider.createToken(1L, "user1", "INDIVIDUAL");
 
         assertThatThrownBy(() -> jwtProvider.validateToken(token))

@@ -1,0 +1,171 @@
+{
+  "title": "로그인 성능 챌린지 - EC2 스펙 재현 및 실패율 원인 분석",
+  "uid": "login-perf-challenge",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "timezone": "browser",
+  "time": { "from": "2026-08-24T00:00:00.000Z", "to": "2026-08-24T06:00:00.000Z" },
+  "refresh": "",
+  "tags": ["k6", "login", "hikari", "load-test"],
+  "templating": {
+    "list": [
+      {
+        "name": "vus",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+        "query": { "query": "label_values(k6_http_reqs_total{name=\"POST /api/users/login\"}, vus)", "refId": "vusVar" },
+        "includeAll": true,
+        "multi": true,
+        "current": { "text": "All", "value": "$__all" },
+        "refresh": 2,
+        "sort": 3
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "테스트 조건",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false
+    },
+    {
+      "id": 2,
+      "type": "text",
+      "title": "",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 1 },
+      "options": {
+        "mode": "markdown",
+        "content": "**환경**: EC2 t3.large 스펙 재현 (2vCPU / 8GiB) · user-service 메모리 제약 반영 (JVM 힙 지표로 대체 확인)  \n**비교 조건**: DB 커넥션 풀 10개 vs 25개 · 로그인/리프레시 DB 조회 분리(트랜잭션 점유 시간 단축) 리팩토링 전/후  \n**목적**: 로그인 실패율의 원인이 커넥션 풀 한계였는지, 트랜잭션 범위 문제였는지 구분해서 확인"
+      }
+    },
+    {
+      "id": 10,
+      "type": "row",
+      "title": "DB 커넥션 풀 상태 — 풀 10개 vs 25개 구간을 시간 범위로 비교",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "collapsed": false
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "활성/유휴/대기 커넥션 수 (실선) vs 풀 최대치(점선)",
+      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 6 },
+      "targets": [
+        { "expr": "hikaricp_connections_active{job=\"user-service\"}", "legendFormat": "활성(active)", "refId": "A" },
+        { "expr": "hikaricp_connections_idle{job=\"user-service\"}", "legendFormat": "유휴(idle)", "refId": "B" },
+        { "expr": "hikaricp_connections_pending{job=\"user-service\"}", "legendFormat": "대기(pending)", "refId": "C" },
+        { "expr": "hikaricp_connections_max{job=\"user-service\"}", "legendFormat": "풀 최대치(max)", "refId": "D" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 8 } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "풀 최대치(max)" }, "properties": [{ "id": "custom.lineStyle", "value": { "dash": [10, 5], "fill": "dash" } }, { "id": "custom.fillOpacity", "value": 0 }] }
+        ]
+      },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["max", "last"] } }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "커넥션 획득 대기시간 (ms) — 풀이 부족하면 튀는 지표",
+      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 6 },
+      "targets": [
+        { "expr": "hikaricp_connections_acquire_seconds_max{job=\"user-service\"} * 1000", "legendFormat": "최대 획득 대기시간", "refId": "A" },
+        { "expr": "1000 * rate(hikaricp_connections_acquire_seconds_sum{job=\"user-service\"}[1m]) / rate(hikaricp_connections_acquire_seconds_count{job=\"user-service\"}[1m])", "legendFormat": "평균 획득 대기시간", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ms", "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 10 } }, "overrides": [] },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["max", "last"] } }
+    },
+    {
+      "id": 20,
+      "type": "row",
+      "title": "메모리 압박 — EC2 500MB 제약 아래 힙이 얼마나 빠듯했는가 (cAdvisor 컨테이너 라벨 미수집으로 JVM 힙으로 대체)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 },
+      "collapsed": false
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "JVM 힙 사용량 vs 힙 최대치",
+      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 16 },
+      "targets": [
+        { "expr": "sum(jvm_memory_used_bytes{job=\"user-service\", area=\"heap\"})", "legendFormat": "힙 사용량", "refId": "A" },
+        { "expr": "sum(jvm_memory_max_bytes{job=\"user-service\", area=\"heap\"})", "legendFormat": "힙 최대치", "refId": "B" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "bytes", "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 10 } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "힙 최대치" }, "properties": [{ "id": "custom.lineStyle", "value": { "dash": [10, 5], "fill": "dash" } }, { "id": "custom.fillOpacity", "value": 0 }] }
+        ]
+      },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["max", "last"] } }
+    },
+    {
+      "id": 30,
+      "type": "row",
+      "title": "로그인 실패율 · 응답시간 — VU 단계별",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 25 },
+      "collapsed": false
+    },
+    {
+      "id": 31,
+      "type": "timeseries",
+      "title": "로그인 실패율(%)",
+      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 26 },
+      "targets": [
+        {
+          "expr": "100 * sum by (vus) (rate(k6_http_reqs_total{name=\"POST /api/users/login\", status!=\"200\", vus=~\"$vus\"}[30s])) / sum by (vus) (rate(k6_http_reqs_total{name=\"POST /api/users/login\", vus=~\"$vus\"}[30s]))",
+          "legendFormat": "vus={{vus}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "percent", "min": 0, "max": 100, "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "spanNulls": false, "fillOpacity": 10 } },
+        "overrides": []
+      },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["max"] } }
+    },
+    {
+      "id": 32,
+      "type": "timeseries",
+      "title": "로그인 응답시간 (ms, 성공 응답만) — p95 / avg",
+      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 26 },
+      "targets": [
+        { "expr": "sum by (vus) (avg_over_time(k6_http_req_duration_p95{name=\"POST /api/users/login\", status=\"200\", vus=~\"$vus\"}[30s]))", "legendFormat": "p95 vus={{vus}}", "refId": "A" },
+        { "expr": "sum by (vus) (avg_over_time(k6_http_req_duration_avg{name=\"POST /api/users/login\", status=\"200\", vus=~\"$vus\"}[30s]))", "legendFormat": "avg vus={{vus}}", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ms", "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 8 } }, "overrides": [] },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["max"] } }
+    },
+    {
+      "id": 40,
+      "type": "row",
+      "title": "로그인 대기열 상태 (참고)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 35 },
+      "collapsed": true,
+      "panels": [
+        {
+          "id": 41,
+          "type": "timeseries",
+          "title": "대기 인원 / 처리 중 인원",
+          "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+          "gridPos": { "h": 9, "w": 24, "x": 0, "y": 36 },
+          "targets": [
+            { "expr": "login_queue_size", "legendFormat": "대기 인원", "refId": "A" },
+            { "expr": "login_active_count", "legendFormat": "처리 중 인원", "refId": "B" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 12 } }, "overrides": [] },
+          "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["max", "last"] } }
+        }
+      ]
+    }
+  ]
+}

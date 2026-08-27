@@ -1,3 +1,7 @@
+plugins {
+    id 'me.champeau.jmh' version '0.7.2'
+}
+
 bootJar {
     enabled = false
 }
@@ -7,4 +11,16 @@ dependencies {
     implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+
+    jmh 'io.jsonwebtoken:jjwt-api:0.12.6'
+    jmh 'io.jsonwebtoken:jjwt-impl:0.12.6'
+    jmh 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+}
+
+jmh {
+    fork = 1
+    warmupIterations = 5
+    iterations = 5
+    resultFormat = 'JSON'
+    resultsFile = project.file("$buildDir/reports/jmh/results.json")
 }
