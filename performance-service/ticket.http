@@ -18,3 +18,13 @@ Content-Type: application/json
   "sessionNum" : 2,
   "zone" : "VIP"
 }
+
+### 좌석 점유 요청
+PUT http://localhost:8083/api/tickets/status/hold
+Content-Type: application/json
+X-User-Id: 1
+
+{
+  "ticketId": 991,
+  "orderType": "GENERAL"
+}
