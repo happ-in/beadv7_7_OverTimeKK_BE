@@ -14,10 +14,13 @@ import com.programmers.kdt.order.dto.ValidateTicketRequest;
 import com.programmers.kdt.order.entity.Order;
 import com.programmers.kdt.order.entity.OrderItem;
 import com.programmers.kdt.order.entity.OrderStatus;
+import com.programmers.kdt.order.entity.TicketCancelJob;
 import com.programmers.kdt.order.event.TicketCancelRequestEvent;
 import com.programmers.kdt.order.event.TicketReleaseRequestEvent;
 import com.programmers.kdt.order.exception.OrderErrorCode;
 import com.programmers.kdt.order.repository.OrderRepository;
+import com.programmers.kdt.order.repository.TicketCancelJobRepository;
+import com.programmers.kdt.payment.dto.RefundPaymentRequest;
 import com.programmers.kdt.payment.service.PaymentService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -51,6 +54,8 @@ class OrderServiceImplTest {
     @Mock
     private OrderRepository orderRepository;
     @Mock
+    private TicketCancelJobRepository ticketCancelJobRepository;
+    @Mock
     private TicketClient ticketClient;
     @Mock
     private PaymentService paymentService;
@@ -63,6 +68,7 @@ class OrderServiceImplTest {
     void setUp() {
         orderService = new OrderServiceImpl(
                 orderRepository,
+                ticketCancelJobRepository,
                 ticketClient,
                 paymentService,
                 eventPublisher
@@ -254,10 +260,10 @@ class OrderServiceImplTest {
             when(orderRepository.findByIdForUpdate(ORDER_ID)).thenReturn(Optional.of(order));
 
             CancelOrderResponse firstResponse = orderService.cancelCompletedOrder(
-                    ORDER_ID, new CancelOrderRequest("단순 변심")
+                    ORDER_ID, USER_ID, new CancelOrderRequest("단순 변심")
             );
             CancelOrderResponse secondResponse = orderService.cancelCompletedOrder(
-                    ORDER_ID, new CancelOrderRequest("단순 변심")
+                    ORDER_ID, USER_ID, new CancelOrderRequest("단순 변심")
             );
 
             assertThat(firstResponse.orderStatus()).isEqualTo(OrderStatus.CANCEL_REQUESTED.name());
@@ -285,6 +291,11 @@ class OrderServiceImplTest {
             orderService.confirmCancellation(ORDER_ID);
 
             assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.CANCELLED);
+            ArgumentCaptor<TicketCancelJob> jobCaptor = ArgumentCaptor.forClass(TicketCancelJob.class);
+            verify(ticketCancelJobRepository).save(jobCaptor.capture());
+            assertThat(jobCaptor.getValue().getOrderId()).isEqualTo(ORDER_ID);
+            assertThat(jobCaptor.getValue().getTicketId()).isEqualTo(TICKET_ID);
+            assertThat(jobCaptor.getValue().getUserId()).isEqualTo(USER_ID);
             verify(eventPublisher).publishEvent(
                     new TicketCancelRequestEvent(TICKET_ID, USER_ID, ORDER_ID)
             );
@@ -303,6 +314,7 @@ class OrderServiceImplTest {
             verify(eventPublisher, org.mockito.Mockito.times(1)).publishEvent(
                     new TicketCancelRequestEvent(TICKET_ID, USER_ID, ORDER_ID)
             );
+            verify(ticketCancelJobRepository, org.mockito.Mockito.times(1)).save(any(TicketCancelJob.class));
         }
 
         @Test
