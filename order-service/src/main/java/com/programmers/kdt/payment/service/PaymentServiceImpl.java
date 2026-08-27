@@ -2,6 +2,7 @@ package com.programmers.kdt.payment.service;
 
 import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.order.entity.Order;
+import com.programmers.kdt.order.entity.OrderStatus;
 import com.programmers.kdt.order.repository.OrderRepository;
 import com.programmers.kdt.payment.client.pay.PaymentConfirmEvent;
 import com.programmers.kdt.payment.client.pay.PaymentFailEvent;
@@ -112,7 +113,20 @@ public class PaymentServiceImpl implements PaymentService{
             throw new BusinessException(PaymentErrorCode.PAYMENT_ALREADY_EXISTS);
         }
 
-        order.startPayment(LocalDateTime.now()); // 주문상태 검증
+        LocalDateTime now = LocalDateTime.now();
+        int updatedRow = orderRepository.tryStartPayment(
+                order.getOrderId(),
+                OrderStatus.PENDING,
+                OrderStatus.PAYMENT_STARTED,
+                now
+        );
+
+        if(updatedRow == 0){
+            if(!order.getExpiresAt().isAfter(now)){
+                throw new BusinessException(PaymentErrorCode.ORDER_ALREADY_EXPIRED);
+            }
+            throw new BusinessException(PaymentErrorCode.ORDER_NOT_PENDING);
+        }
 
         // 주문 금액이 같은지 판별
         if (!order.getTotalAmount().equals(request.amount())) {

@@ -22,6 +22,7 @@ import com.programmers.kdt.order.repository.OrderRepository;
 import com.programmers.kdt.order.repository.TicketCancelJobRepository;
 import com.programmers.kdt.payment.dto.RefundPaymentRequest;
 import com.programmers.kdt.payment.service.PaymentService;
+import com.programmers.kdt.payment.dto.RefundPaymentRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -180,53 +181,39 @@ class OrderServiceImplTest {
         }
     }
 
-    @Test
-    @DisplayName("만료 대상 주문을 만료시키고 각각 좌석 해제 이벤트를 발행한다")
-    void expireOrders() {
-        Order first = pendingOrder(ORDER_ID, TICKET_ID, HOLD_KEY);
-        Order second = pendingOrder(2L, 200L, "second-hold-key");
-        when(orderRepository.findAllByOrderStatusAndExpiresAtLessThanEqual(
-                org.mockito.ArgumentMatchers.eq(OrderStatus.PENDING), any(LocalDateTime.class)
-        )).thenReturn(List.of(first, second));
-
-        orderService.expireOrders();
-
-        assertThat(first.getOrderStatus()).isEqualTo(OrderStatus.EXPIRED);
-        assertThat(second.getOrderStatus()).isEqualTo(OrderStatus.EXPIRED);
-        ArgumentCaptor<TicketReleaseRequestEvent> captor =
-                ArgumentCaptor.forClass(TicketReleaseRequestEvent.class);
-        verify(eventPublisher, org.mockito.Mockito.times(2)).publishEvent(captor.capture());
-        assertThat(captor.getAllValues()).containsExactly(
-                new TicketReleaseRequestEvent(ORDER_ID, TICKET_ID, HOLD_KEY),
-                new TicketReleaseRequestEvent(2L, 200L, "second-hold-key")
-        );
-    }
-
     @Nested
-    @DisplayName("결제 시작")
-    class StartPayment {
+    @DisplayName("주문 만료")
+    class ExpireOrder {
 
         @Test
-        @DisplayName("유효한 PENDING 주문을 PAYMENT_STARTED로 변경한다")
+        @DisplayName("조건부 만료에 성공하면 좌석 해제 이벤트를 발행한다")
         void success() {
+            LocalDateTime now = LocalDateTime.now();
             Order order = pendingOrder();
+            when(orderRepository.tryExpire(
+                    ORDER_ID, OrderStatus.PENDING, OrderStatus.EXPIRED, now
+            )).thenReturn(1);
             when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
 
-            orderService.startPayment(ORDER_ID);
+            orderService.expireOrder(ORDER_ID, now);
 
-            assertThat(order.getOrderStatus()).isEqualTo(OrderStatus.PAYMENT_STARTED);
+            verify(eventPublisher).publishEvent(
+                    new TicketReleaseRequestEvent(ORDER_ID, TICKET_ID, HOLD_KEY)
+            );
         }
 
         @Test
-        @DisplayName("이미 만료 시각이 지난 주문이면 예외가 발생한다")
-        void expiredOrder() {
-            Order order = orderWithExpiration(LocalDateTime.now().minusSeconds(1));
-            when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
+        @DisplayName("다른 상태 전이가 먼저 성공하면 좌석 해제 이벤트를 발행하지 않는다")
+        void transitionAlreadyWon() {
+            LocalDateTime now = LocalDateTime.now();
+            when(orderRepository.tryExpire(
+                    ORDER_ID, OrderStatus.PENDING, OrderStatus.EXPIRED, now
+            )).thenReturn(0);
 
-            assertBusinessException(
-                    () -> orderService.startPayment(ORDER_ID),
-                    OrderErrorCode.ORDER_ALREADY_EXPIRED
-            );
+            orderService.expireOrder(ORDER_ID, now);
+
+            verify(orderRepository, never()).findById(anyLong());
+            verifyNoInteractions(eventPublisher);
         }
     }
 
