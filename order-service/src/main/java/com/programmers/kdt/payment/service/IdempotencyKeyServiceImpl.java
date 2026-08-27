@@ -4,6 +4,7 @@ import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.payment.entity.key.IdempotencyKey;
 import com.programmers.kdt.payment.exception.PaymentErrorCode;
 import com.programmers.kdt.payment.repository.IdempotencyKeyRepository;
+import com.programmers.kdt.payment.service.tx.IdempotencyKeyTxOps;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;

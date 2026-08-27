@@ -17,6 +17,9 @@ import com.programmers.kdt.payment.exception.PaymentErrorCode;
 import com.programmers.kdt.payment.exception.PointErrorCode;
 import com.programmers.kdt.payment.repository.PaymentRefundRepository;
 import com.programmers.kdt.payment.repository.PaymentRepository;
+import com.programmers.kdt.payment.service.tx.PaymentTxOps;
+import com.programmers.kdt.payment.service.tx.PgOutcome;
+import com.programmers.kdt.payment.service.util.PointEventIds;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -28,6 +31,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
+import org.springframework.web.client.RestClientException;
 import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
@@ -56,6 +60,7 @@ public class PaymentServiceImpl implements PaymentService{
     private final IdempotencyKeyService idempotencyKeyService;
     private final ObjectMapper objectMapper;
     private final PaymentResultEventPublisher paymentResultEventPublisher;
+    private final PaymentTxOps paymentTxOps;
 
 
     @Transactional
@@ -124,10 +129,9 @@ public class PaymentServiceImpl implements PaymentService{
         Long pgAmount = request.amount() - usedPoint;
 
         if (usedPoint > 0) {
-            pointService.usePoint(order.getUserId(), usedPoint, pointUseEventId(request.orderId()));
+            pointService.usePoint(order.getUserId(), usedPoint, PointEventIds.useEventId(request.orderId()));
         }
 
-        // 나중에 PG사 요청은 트랜잭션에서 빼는 것을 고려(MVP 제외)
         PgReadyResult readyResult = callPg("토스 결제 준비", request.orderId(),
                 () -> pgClient.ready(new PgReadyCommand(request.orderId(), pgAmount)));
         Payment payment;
@@ -143,7 +147,6 @@ public class PaymentServiceImpl implements PaymentService{
         return CreatePaymentResponse.of(payment, readyResult);
     }
 
-    @Transactional
     public ConfirmPaymentResponse confirm(Long paymentId, ConfirmPaymentRequest request, String idempotencyKey, Long userId) {
         String key = "CONFIRM:" + idempotencyKey;
         String requestHash = hashRequest(request);
@@ -164,40 +167,39 @@ public class PaymentServiceImpl implements PaymentService{
 
     // 결제 확인
     private ConfirmPaymentResponse doConfirm(Long paymentId, ConfirmPaymentRequest request, Long userId) {
-        Payment payment = getPayment(paymentId);
+        Payment payment = paymentTxOps.assignKeyAndCommit(paymentId, request.transactionKey()); // tx1
 
         if (!payment.getUserId().equals(userId)) throw new BusinessException(PaymentErrorCode.PAYMENT_ACCESS_DENIED);
-
-        // 상태 검증
-        if (payment.getPaymentStatus() != PaymentStatus.READY) {
-            throw new BusinessException(PaymentErrorCode.INVALID_PAYMENT_STATUS, payment.getPaymentStatus());
-        }
-
-        payment.assignPaymentKey(request.transactionKey());
-        try {
-            paymentRepository.saveAndFlush(payment);
-        } catch (ObjectOptimisticLockingFailureException e) {
-            throw new BusinessException(PaymentErrorCode.PAYMENT_CONCURRENT_MODIFICATION);
-        }
 
         Long usedPoint = getUsedPointForOrder(payment.getOrderId());
         Long pgApproveAmount = payment.getAmount() - usedPoint;
 
-        PgApproveResult approveResult = callPg("토스 결제 승인", paymentId,
-                () -> pgClient.approve(new PgApproveCommand(payment.getPaymentKey(), payment.getPgOrderId(), pgApproveAmount)));
+        PgOutcome outcome;
+        PgApproveResult approveResult = null;
 
-        // 결제 요청 성공 & 실패 분기
-        if (approveResult.success()) {
-            payment.approve();
-            paymentResultEventPublisher.publishConfirmed(new PaymentConfirmEvent(payment.getOrderId(), payment.getId()));
-        } else {
-            payment.fail();
-            rollbackFailedPoint(payment.getOrderId(), usedPoint);
-            paymentResultEventPublisher.publishFailed(
-                    new PaymentFailEvent(payment.getOrderId(), payment.getId(), PaymentErrorCode.PG_REQUEST_FAILED.getMessage())
-            );
+        // PG
+        try {
+            approveResult = pgClient.approve(new PgApproveCommand(payment.getPaymentKey(), payment.getPgOrderId(), pgApproveAmount));
+            outcome = approveResult.success() ? PgOutcome.SUCCESS : PgOutcome.EXPLICIT_FAIL;
+        } catch (PgClientException e) {
+            log.error("토스 결제 승인 거절 - paymentId={}, pgCode={}", paymentId, e.getPgErrorCode(), e);
+            outcome = PgOutcome.EXPLICIT_FAIL;
+        } catch (RestClientException e) {
+            log.error("토스 결제 승인 실패(응답 없음) - paymentId={}", paymentId, e);
+            outcome = PgOutcome.AMBIGUOUS;
         }
 
+        payment = paymentTxOps.applyConfirmResult(paymentId, outcome); // tx2
+
+        switch (outcome) {
+            case SUCCESS ->
+                    paymentResultEventPublisher.publishConfirmed(new PaymentConfirmEvent(payment.getOrderId(), payment.getId()));
+            case EXPLICIT_FAIL ->{
+                rollbackFailedPoint(payment.getOrderId(), usedPoint);
+                paymentResultEventPublisher.publishFailed(new PaymentFailEvent(payment.getOrderId(), payment.getId(), PaymentErrorCode.PG_REQUEST_FAILED.getMessage()));
+            }
+            case AMBIGUOUS -> {paymentTxOps.applyReconcileResult(payment.getId(), outcome);}
+        }
         return ConfirmPaymentResponse.from(payment);
     }
 
@@ -359,25 +361,13 @@ public class PaymentServiceImpl implements PaymentService{
         }
 
         private Long getUsedPointForOrder(Long orderId) {
-            return resolveUsedPoint(pointUseEventId(orderId));
+            return resolveUsedPoint(PointEventIds.useEventId(orderId));
         }
 
-        private String pointUseEventId(Long orderId) {
-            return "ORDER:" + orderId + ":POINT_USE";
-        }
-
-        private String pointRollbackFailEventId(Long orderId) {
-            return "ORDER:" + orderId + ":POINT_ROLLBACK_FAIL";
-        }
-
-        private String pointRollbackRefundEventId(Long orderId) {
-            return "ORDER:" + orderId + ":POINT_ROLLBACK_REFUND";
-        }
 
         private void rollbackFailedPoint(Long orderId, Long usedPoint) {
             if (usedPoint > 0) {
-                pointService.rollbackPoint(pointUseEventId(orderId), usedPoint,
-                        pointRollbackFailEventId(orderId), true);
+                pointService.rollbackPoint(PointEventIds.useEventId(orderId), usedPoint, PointEventIds.rollbackFailEventId(orderId), true);
         }
     }
 
@@ -389,8 +379,8 @@ public class PaymentServiceImpl implements PaymentService{
         }
 
         boolean isFullRollback = refundedPoint.equals(usedPoint);
-        String originEventId = pointUseEventId(orderId);
-        String rollbackEventId = pointRollbackRefundEventId(orderId);
+        String originEventId = PointEventIds.useEventId(orderId);
+        String rollbackEventId = PointEventIds.rollbackEventId(orderId);
 
         int maxAttempts = 3; // 최대 재시도 횟수
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
