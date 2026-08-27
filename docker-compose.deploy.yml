@@ -59,6 +59,8 @@ services:
       SPRING_DATA_REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
       MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: http://${MONITORING_PRIVATE_IP}:4318/v1/traces
     volumes:
       - ./logs:/app/logs
@@ -143,23 +145,6 @@ services:
       - reseat-net
     # nginx는 호스트 포트 없이 reseat-net 내부에서 gateway-service:8080으로 접근함
     # 8080을 호스트에 노출하는 건 모니터링(EC2#2)의 Prometheus scrape 때문 - SG에서 EC2#2만 허용
-
-  gateway-service:
-    image: ghcr.io/${GHCR_OWNER}/gateway-service:${IMAGE_TAG:-latest}
-    container_name: gateway-service
-    depends_on:
-      - user-service
-      - order-service
-      - performance-service
-    environment:
-      USER_SERVICE_URL: http://user-service:8081
-      ORDER_SERVICE_URL: http://order-service:8082
-      PERFORMANCE_SERVICE_URL: http://performance-service:8083
-      JWT_SECRET: ${JWT_SECRET}
-    restart: unless-stopped
-    networks:
-      - reseat-net
-    # 8080 호스트로 노출 안 함 - nginx가 내부 네트워크로만 프록시
 
   frontend:
     image: ${FRONTEND_IMAGE:-ghcr.io/prgrms-be-adv-devcourse/beadv7_7_overtimekk_fe/frontend:latest}

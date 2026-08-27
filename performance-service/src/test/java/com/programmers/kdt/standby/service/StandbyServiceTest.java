@@ -301,7 +301,7 @@ class StandbyServiceTest {
         void cancelWaitingStandby() {
             // given
             Standby standby = mock(Standby.class);
-            given(standbyRepository.findById(STANDBY_ID)).willReturn(Optional.of(standby));
+            given(standbyRepository.findByIdForUpdate(STANDBY_ID)).willReturn(Optional.of(standby));
             given(standby.getUserId()).willReturn(USER_ID);
             given(standby.getStandbyStatus()).willReturn(StandbyStatus.WAITING);
 
@@ -315,60 +315,34 @@ class StandbyServiceTest {
         }
 
         @Test
-        @DisplayName("HELD 상태의 본인 신청을 취소하면 cancel() 후, 매칭됐던 zone으로 다음 대기자에게 재매칭을 시도한다.")
+        @DisplayName("HELD 상태의 본인 신청을 취소하면 cancel() 후, 매칭됐던 zone에 대한 재매칭을 이벤트로 요청한다.")
         void cancelHeldStandbyTriggersRematch() {
-            // given
-            Standby cancelled = mock(Standby.class);
-            given(standbyRepository.findById(STANDBY_ID)).willReturn(Optional.of(cancelled));
-            given(cancelled.getUserId()).willReturn(USER_ID);
-            given(cancelled.getStandbyStatus()).willReturn(StandbyStatus.HELD);
-            given(cancelled.getMatchedZone()).willReturn("A");
-            given(cancelled.getPerformanceSession()).willReturn(session);
-            given(standbyRepository.findMatchCandidate(session, "A", StandbyStatus.WAITING))
-                    .willReturn(Optional.empty());
-
-            // when
-            standbyService.cancelStandby(STANDBY_ID, USER_ID);
-
-            // then
-            verify(cancelled).cancel();
-            verify(standbyRepository).findMatchCandidate(session, "A", StandbyStatus.WAITING);
-        }
-
-        @Test
-        @DisplayName("HELD 취소로 다음 대기자가 매칭되면, 취소된 신청이 들고 있던 ticketId를 그대로 이어받아 ticket에 알린다.")
-        void cancelHeldStandbyPropagatesTicketIdToNextCandidate() {
             // given - 취소되는 standby가 ticketId=900을 들고 있었음
             Long ticketId = 900L;
             Standby cancelled = mock(Standby.class);
-            given(standbyRepository.findById(STANDBY_ID)).willReturn(Optional.of(cancelled));
+            given(standbyRepository.findByIdForUpdate(STANDBY_ID)).willReturn(Optional.of(cancelled));
             given(cancelled.getUserId()).willReturn(USER_ID);
             given(cancelled.getStandbyStatus()).willReturn(StandbyStatus.HELD);
             given(cancelled.getMatchedZone()).willReturn("A");
             given(cancelled.getTicketId()).willReturn(ticketId);
             given(cancelled.getPerformanceSession()).willReturn(session);
-
-            Standby next = mock(Standby.class);
-            LocalDateTime expiredAt = LocalDateTime.now().plusMinutes(30);
-            given(next.getUserId()).willReturn(999L);
-            given(next.getExpiredAt()).willReturn(expiredAt);
-            given(standbyRepository.findMatchCandidate(session, "A", StandbyStatus.WAITING))
-                    .willReturn(Optional.of(next));
+            given(session.getPerformanceSessionId()).willReturn(sessionId());
 
             // when
             standbyService.cancelStandby(STANDBY_ID, USER_ID);
 
-            // then - 새로 매칭된 next는 같은 ticketId로 hold되고, 그 ticketId 그대로 이벤트가 발행된다.
-            verify(next).hold("A", ticketId);
+            // then - 재매칭은 커밋 이후 이벤트(StandbyCheckRequestEvent)로 위임되고, 취소된 신청의
+            // ticketId를 그대로 싣는다. 다음 후보로의 실제 매칭(hold/알림)은 StandbyCheckTest에서 검증함.
+            verify(cancelled).cancel();
             verify(eventPublisher)
-                    .publishEvent(new StandbyTicketEvent(ticketId, 999L, expiredAt));
+                    .publishEvent(new StandbyCheckRequestEvent(PERFORMANCE_ID, SESSION_NUM, "A", ticketId));
         }
 
         @Test
         @DisplayName("존재하지 않는 standbyId면 STANDBY_NOT_FOUND 예외가 발생한다.")
         void rejectWhenStandbyNotFound() {
             // given
-            given(standbyRepository.findById(STANDBY_ID)).willReturn(Optional.empty());
+            given(standbyRepository.findByIdForUpdate(STANDBY_ID)).willReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> standbyService.cancelStandby(STANDBY_ID, USER_ID))
@@ -384,7 +358,7 @@ class StandbyServiceTest {
         void rejectWhenNotOwner() {
             // given - 신청자는 USER_ID인데, 다른 사람(999L)이 취소를 시도
             Standby standby = mock(Standby.class);
-            given(standbyRepository.findById(STANDBY_ID)).willReturn(Optional.of(standby));
+            given(standbyRepository.findByIdForUpdate(STANDBY_ID)).willReturn(Optional.of(standby));
             given(standby.getUserId()).willReturn(999L);
 
             // when & then
@@ -409,7 +383,7 @@ class StandbyServiceTest {
         void delegatesToEntityCancelZoneWithoutRematch() {
             // given - getMatchedZone()이 null이라 취소하려는 "B"와 다름(매칭된 zone이 아님)
             Standby standby = mock(Standby.class);
-            given(standbyRepository.findById(STANDBY_ID)).willReturn(Optional.of(standby));
+            given(standbyRepository.findByIdForUpdate(STANDBY_ID)).willReturn(Optional.of(standby));
             given(standby.getUserId()).willReturn(USER_ID);
 
             // when
@@ -422,51 +396,26 @@ class StandbyServiceTest {
         }
 
         @Test
-        @DisplayName("취소한 zone이 매칭돼있던(HELD) zone이면, 같은 zone으로 다음 대기자에게 즉시 재매칭을 시도한다.")
+        @DisplayName("취소한 zone이 매칭돼있던(HELD) zone이면, 같은 zone에 대한 재매칭을 이벤트로 요청한다.")
         void cancelMatchedZoneTriggersRematch() {
-            // given
-            Standby standby = mock(Standby.class);
-            given(standbyRepository.findById(STANDBY_ID)).willReturn(Optional.of(standby));
-            given(standby.getUserId()).willReturn(USER_ID);
-            given(standby.getMatchedZone()).willReturn("B");
-            given(standby.getPerformanceSession()).willReturn(session);
-            given(standbyRepository.findMatchCandidate(session, "B", StandbyStatus.WAITING))
-                    .willReturn(Optional.empty());
-
-            // when
-            standbyService.cancelZone(STANDBY_ID, USER_ID, "B");
-
-            // then
-            verify(standby).cancelZone("B");
-            verify(standbyRepository).findMatchCandidate(session, "B", StandbyStatus.WAITING);
-        }
-
-        @Test
-        @DisplayName("부분취소로 다음 대기자가 매칭되면, 취소된 신청이 들고 있던 ticketId를 그대로 이어받아 ticket에 알린다.")
-        void cancelMatchedZonePropagatesTicketIdToNextCandidate() {
             // given - 취소되는 standby가 ticketId=901을 들고 있었음
             Long ticketId = 901L;
             Standby standby = mock(Standby.class);
-            given(standbyRepository.findById(STANDBY_ID)).willReturn(Optional.of(standby));
+            given(standbyRepository.findByIdForUpdate(STANDBY_ID)).willReturn(Optional.of(standby));
             given(standby.getUserId()).willReturn(USER_ID);
             given(standby.getMatchedZone()).willReturn("B");
             given(standby.getTicketId()).willReturn(ticketId);
             given(standby.getPerformanceSession()).willReturn(session);
-
-            Standby next = mock(Standby.class);
-            LocalDateTime expiredAt = LocalDateTime.now().plusMinutes(30);
-            given(next.getUserId()).willReturn(999L);
-            given(next.getExpiredAt()).willReturn(expiredAt);
-            given(standbyRepository.findMatchCandidate(session, "B", StandbyStatus.WAITING))
-                    .willReturn(Optional.of(next));
+            given(session.getPerformanceSessionId()).willReturn(sessionId());
 
             // when
             standbyService.cancelZone(STANDBY_ID, USER_ID, "B");
 
-            // then
-            verify(next).hold("B", ticketId);
+            // then - 재매칭은 커밋 이후 이벤트(StandbyCheckRequestEvent)로 위임되고, 취소된 신청의
+            // ticketId를 그대로 싣는다. 다음 후보로의 실제 매칭(hold/알림)은 StandbyCheckTest에서 검증함.
+            verify(standby).cancelZone("B");
             verify(eventPublisher)
-                    .publishEvent(new StandbyTicketEvent(ticketId, 999L, expiredAt));
+                    .publishEvent(new StandbyCheckRequestEvent(PERFORMANCE_ID, SESSION_NUM, "B", ticketId));
         }
 
         @Test
@@ -474,7 +423,7 @@ class StandbyServiceTest {
         void rejectWhenNotOwner() {
             // given
             Standby standby = mock(Standby.class);
-            given(standbyRepository.findById(STANDBY_ID)).willReturn(Optional.of(standby));
+            given(standbyRepository.findByIdForUpdate(STANDBY_ID)).willReturn(Optional.of(standby));
             given(standby.getUserId()).willReturn(999L);
 
             // when & then
