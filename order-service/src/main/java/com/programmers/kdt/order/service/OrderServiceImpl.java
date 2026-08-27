@@ -98,26 +98,19 @@ public class OrderServiceImpl implements OrderService {
     // 주문 만료
     @Override
     @Transactional
-    public void expireOrders(){
-        LocalDateTime now = LocalDateTime.now();
-
-        List<Order> orders = orderRepository.findAllByOrderStatusAndExpiresAtLessThanEqual(
+    public void expireOrder(Long orderId, LocalDateTime now){
+        int updatedRow = orderRepository.tryExpire(
+                orderId,
                 OrderStatus.PENDING,
+                OrderStatus.EXPIRED,
                 now
         );
-        for(Order order : orders){
-            order.expire();
-            publishTicketReleaseEvent(order);
+        if(updatedRow == 0){
+            return;
         }
-    }
 
-    // 주문 만료 조회 -- 결제 생성 API 클릭 시 호출
-    @Override
-    @Transactional
-    public void startPayment(Long orderId) {
         Order order = findOrder(orderId);
-
-        order.startPayment(LocalDateTime.now());
+        publishTicketReleaseEvent(order);
     }
 
     // 결제 후 주문 취소

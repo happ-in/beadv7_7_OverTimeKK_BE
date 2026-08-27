@@ -5,6 +5,7 @@ import com.programmers.kdt.order.entity.OrderStatus;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -17,6 +18,48 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     List<Order> findAllByOrderStatusAndExpiresAtLessThanEqual(
             OrderStatus orderStatus,
             LocalDateTime expiresAt
+    );
+
+    @Modifying
+    @Query("""
+        update Order o
+          set o.orderStatus = :nextStatus
+        where o.orderId = :orderId
+          and o.orderStatus = :currentStatus
+          and o.expiresAt > :now
+        """)
+    int tryStartPayment(
+            @Param("orderId") Long orderId,
+            @Param("currentStatus") OrderStatus currentStatus,
+            @Param("nextStatus") OrderStatus nextStatus,
+            @Param("now") LocalDateTime now
+    );
+
+    @Modifying
+    @Query("""
+    update Order o
+       set o.orderStatus = :nextStatus
+     where o.orderId = :orderId
+       and o.orderStatus = :currentStatus
+       and o.expiresAt <= :now
+    """)
+    int tryExpire(
+            @Param("orderId") Long orderId,
+            @Param("currentStatus") OrderStatus currentStatus,
+            @Param("nextStatus") OrderStatus nextStatus,
+            @Param("now") LocalDateTime now
+    );
+
+    @Query("""
+    select o.orderId
+      from Order o
+     where o.orderStatus = :status
+       and o.expiresAt <= :now
+     order by o.expiresAt asc, o.orderId asc
+    """)
+    List<Long> findExpirationCandidateIds(
+            @Param("status") OrderStatus status,
+            @Param("now") LocalDateTime now
     );
 
     List<Order> findByUserIdAndOrderStatusInOrderByCreatedAtDesc(

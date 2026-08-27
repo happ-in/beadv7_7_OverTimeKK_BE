@@ -4,6 +4,7 @@ package com.programmers.kdt.payment.service;
 import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.common.exception.CommonErrorCode;
 import com.programmers.kdt.order.entity.Order;
+import com.programmers.kdt.order.entity.OrderStatus;
 import com.programmers.kdt.order.repository.OrderRepository;
 import com.programmers.kdt.payment.client.pay.PaymentConfirmEvent;
 import com.programmers.kdt.payment.client.pay.PaymentFailEvent;
@@ -81,6 +82,9 @@ class PaymentServiceImplTest {
         paymentService = new PaymentServiceImpl(paymentRepository, orderRepository, paymentRefundRepository, refundEventPublisher, performanceClient, orderClient, pgClient, pointService, idempotencyKeyService, objectMapper, paymentResultEventPublisher, paymentTxOps);
         lenient().when(idempotencyKeyService.generate(any(String.class), any(String.class))).thenReturn(Optional.empty());
         lenient().when(objectMapper.writeValueAsString(any())).thenReturn("{}");
+        lenient().when(orderRepository.tryStartPayment(
+                anyLong(), eq(OrderStatus.PENDING), eq(OrderStatus.PAYMENT_STARTED), any(LocalDateTime.class)
+        )).thenReturn(1);
     }
 
     @Nested
@@ -118,6 +122,53 @@ class PaymentServiceImplTest {
             assertThat(saved.getOrderId()).isEqualTo(1L);
             assertThat(saved.getUserId()).isEqualTo(1L);
             assertThat(saved.getPaymentStatus()).isEqualTo(PaymentStatus.READY);
+            verify(orderRepository).tryStartPayment(
+                    eq(1L), eq(OrderStatus.PENDING), eq(OrderStatus.PAYMENT_STARTED), any(LocalDateTime.class)
+            );
+        }
+
+        @Test
+        @DisplayName("만료 주문과의 조건부 상태 전이에 실패하면 PG를 호출하지 않는다")
+        void expiredOrderDoesNotRequestPg() {
+            Order order = mock(Order.class);
+            when(order.getOrderId()).thenReturn(1L);
+            when(order.getUserId()).thenReturn(1L);
+            when(order.getExpiresAt()).thenReturn(LocalDateTime.now().minusSeconds(1));
+            when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+            when(paymentRepository.findByOrderId(1L)).thenReturn(Optional.empty());
+            when(orderRepository.tryStartPayment(
+                    eq(1L), eq(OrderStatus.PENDING), eq(OrderStatus.PAYMENT_STARTED), any(LocalDateTime.class)
+            )).thenReturn(0);
+
+            assertThatThrownBy(() -> paymentService.pay("idem-key", request, 1L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(PaymentErrorCode.ORDER_ALREADY_EXPIRED);
+
+            verifyNoInteractions(pgClient);
+            verify(paymentRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("만료 전이 외의 상태 변경으로 결제 시작에 실패해도 PG를 호출하지 않는다")
+        void nonPendingOrderDoesNotRequestPg() {
+            Order order = mock(Order.class);
+            when(order.getOrderId()).thenReturn(1L);
+            when(order.getUserId()).thenReturn(1L);
+            when(order.getExpiresAt()).thenReturn(LocalDateTime.now().plusMinutes(1));
+            when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+            when(paymentRepository.findByOrderId(1L)).thenReturn(Optional.empty());
+            when(orderRepository.tryStartPayment(
+                    eq(1L), eq(OrderStatus.PENDING), eq(OrderStatus.PAYMENT_STARTED), any(LocalDateTime.class)
+            )).thenReturn(0);
+
+            assertThatThrownBy(() -> paymentService.pay("idem-key", request, 1L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(PaymentErrorCode.ORDER_NOT_PENDING);
+
+            verifyNoInteractions(pgClient);
+            verify(paymentRepository, never()).save(any());
         }
 
         @Test
