@@ -62,7 +62,7 @@ jobs:
       - name: Create .env file
         run: |
           cat <<EOF > .env
-          GHCR_OWNER=${{ github.repository_owner }}
+          GHCR_OWNER=${{ github.repository_owner }}/beadv7_7_overtimekk_be
           IMAGE_TAG=${{ github.ref_name }}
           FRONTEND_IMAGE=ghcr.io/prgrms-be-adv-devcourse/beadv7_7_overtimekk_fe/frontend:latest
           MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
