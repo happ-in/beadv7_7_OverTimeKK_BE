@@ -10,6 +10,7 @@ import com.programmers.kdt.performance.dto.FindPerformanceDto;
 import com.programmers.kdt.performance.dto.FindPerformancesResponse;
 import com.programmers.kdt.performance.dto.PerformanceSessionSeatDto;
 import com.programmers.kdt.performance.dto.PerformanceSessionSeatResponse;
+import com.programmers.kdt.performance.dto.SellerPerformanceResponse;
 import com.programmers.kdt.performance.entity.Performance;
 import com.programmers.kdt.performance.entity.PerformanceStatus;
 import com.programmers.kdt.performance.exception.PerformanceErrorCode;
@@ -83,6 +84,12 @@ public class FindPerformanceServiceImpl implements FindPerformanceService {
                 .orElseThrow(() -> new BusinessException(PerformanceErrorCode.PERFORMANCE_NOT_FOUND));
         List<PerformanceSessionSeatDto> sessions = performanceRepository.findSessionSeatAvailability(performanceId);
         return new PerformanceSessionSeatResponse(performance.getPerformanceId(), performance.getTicketOpenAt(), sessions);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SellerPerformanceResponse> findSellerPerformances(Long sellerId) {
+        return performanceRepository.findSellerPerformances(sellerId);
     }
 
     private Page<Performance> findPerformances(PerformanceStatus status, Pageable pageable) {

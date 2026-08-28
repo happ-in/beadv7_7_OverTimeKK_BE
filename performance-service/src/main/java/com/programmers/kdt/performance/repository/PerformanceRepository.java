@@ -2,6 +2,7 @@ package com.programmers.kdt.performance.repository;
 
 import com.programmers.kdt.performance.dto.EndedTicketResponse;
 import com.programmers.kdt.performance.dto.PerformanceSessionSeatDto;
+import com.programmers.kdt.performance.dto.SellerPerformanceResponse;
 import com.programmers.kdt.performance.entity.Performance;
 import com.programmers.kdt.performance.entity.PerformanceStatus;
 import org.springframework.data.domain.Page;
@@ -56,5 +57,19 @@ public interface PerformanceRepository extends JpaRepository<Performance, Long> 
                      order by ps.performanceSessionId.sessionNum
                     """)
     List<PerformanceSessionSeatDto> findSessionSeatAvailability(@Param("performanceId") Long performanceId);
+
+    @Query("""
+                    select new com.programmers.kdt.performance.dto.SellerPerformanceResponse(
+                           p.performanceId, p.title, h.hallName, p.ticketOpenAt, p.endDate,
+                           count(ps.performanceSessionId.sessionNum), count(psp.zone))
+                      from Performance p
+                      join Hall h on h.hallId = p.hallId
+                      join PerformanceSession ps on ps.performanceSessionId.performanceId = p.performanceId
+                      join PerformanceSeatPrice psp on psp.performance.performanceId = p.performanceId
+                     where p.sellerId = :sellerId
+                     group by p.performanceId, p.title, h.hallName, p.ticketOpenAt, p.endDate
+                     order by p.endDate desc
+                    """)
+    List<SellerPerformanceResponse> findSellerPerformances(@Param("sellerId") Long sellerId);
 
 }
