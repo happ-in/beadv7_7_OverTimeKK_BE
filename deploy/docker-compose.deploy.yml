@@ -1,10 +1,12 @@
 # EC2 배포용 compose 파일. 로컬 개발용 compose.yaml과는 별개.
-# 실행: docker compose -f docker-compose.deploy.yml --env-file .env up -d
+# 실행 위치는 repo root(reseat-deploy) 기준: docker compose -f deploy/docker-compose.deploy.yml --env-file .env up -d
+# init-databases.sql / observability는 로컬 dev(compose.yaml, observability-compose.yaml)와 공유하므로 이 폴더로 옮기지 않고 ../로 참조함.
 
 services:
   db:
     image: mysql:8.4
     container_name: reseat-mysql
+    mem_limit: 1750m
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       TZ: Asia/Seoul
@@ -14,7 +16,7 @@ services:
       - --collation-server=utf8mb4_0900_ai_ci
       - --init-connect=SET NAMES utf8mb4
     volumes:
-      - ./init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
+      - ../init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
       - reseat-mysql-data:/var/lib/mysql
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
@@ -32,6 +34,7 @@ services:
   redis:
     image: redis:8
     container_name: reseat-redis
+    mem_limit: 256m
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -46,19 +49,22 @@ services:
   user-service:
     image: ghcr.io/${GHCR_OWNER}/user-service:${IMAGE_TAG:-latest}
     container_name: user-service
+    mem_limit: 512m
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
     environment:
+      TZ: Asia/Seoul
       SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/reseat
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
+      SPRING_JPA_SHOW_SQL: "false"
+      SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL: "false"
       JWT_SECRET: ${JWT_SECRET}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
       MAIL_USERNAME: ${MAIL_USERNAME}
       MAIL_PASSWORD: ${MAIL_PASSWORD}
       MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: http://${MONITORING_PRIVATE_IP}:4318/v1/traces
@@ -74,10 +80,15 @@ services:
   order-service:
     image: ghcr.io/${GHCR_OWNER}/order-service:${IMAGE_TAG:-latest}
     container_name: order-service
+    mem_limit: 640m
     depends_on:
       db:
         condition: service_healthy
     environment:
+      TZ: Asia/Seoul
+      # toss/performance-api 프로필이 없으면 @Profile("!toss")/@Profile("!performance-api")인
+      # Mock 빈이 이겨서, 운영에서도 조용히 가짜 PG/가짜 공연 조회로 동작하게 된다.
+      SPRING_PROFILES_ACTIVE: toss,performance-api
       SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/reseat?useUnicode=true&characterEncoding=UTF-8&connectionCollation=utf8mb4_0900_ai_ci&serverTimezone=Asia/Seoul&useSSL=false
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
@@ -86,8 +97,9 @@ services:
       ENCRYPTION_SECRET_KEY: ${ENCRYPTION_SECRET_KEY}
       TOSS_SECRET_KEY: ${TOSS_SECRET_KEY}
       TOSS_CLIENT_KEY: ${TOSS_CLIENT_KEY}
+      SPRING_JPA_SHOW_SQL: "false"
+      SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL: "false"
       JWT_SECRET: ${JWT_SECRET}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
       MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: http://${MONITORING_PRIVATE_IP}:4318/v1/traces
     volumes:
       - ./logs:/app/logs
@@ -101,18 +113,25 @@ services:
   performance-service:
     image: ghcr.io/${GHCR_OWNER}/performance-service:${IMAGE_TAG:-latest}
     container_name: performance-service
+    mem_limit: 1152m
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
+      TZ: Asia/Seoul
       SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/reseat?useUnicode=true&characterEncoding=UTF-8&connectionCollation=utf8mb4_0900_ai_ci&serverTimezone=Asia/Seoul
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       ORDER_SERVICE_URL: http://order-service:8082
+      USER_SERVICE_URL: http://user-service:8081
+      SPRING_JPA_SHOW_SQL: "false"
       JWT_SECRET: ${JWT_SECRET}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
       MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: http://${MONITORING_PRIVATE_IP}:4318/v1/traces
     volumes:
       - ./logs:/app/logs
@@ -126,15 +145,18 @@ services:
   gateway-service:
     image: ghcr.io/${GHCR_OWNER}/gateway-service:${IMAGE_TAG:-latest}
     container_name: gateway-service
+    mem_limit: 384m
     depends_on:
       - user-service
       - order-service
       - performance-service
     environment:
+      TZ: Asia/Seoul
       USER_SERVICE_URL: http://user-service:8081
       ORDER_SERVICE_URL: http://order-service:8082
       PERFORMANCE_SERVICE_URL: http://performance-service:8083
       JWT_SECRET: ${JWT_SECRET}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
       MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: http://${MONITORING_PRIVATE_IP}:4318/v1/traces
     volumes:
       - ./logs:/app/logs
@@ -149,6 +171,7 @@ services:
   frontend:
     image: ${FRONTEND_IMAGE:-ghcr.io/prgrms-be-adv-devcourse/beadv7_7_overtimekk_fe/frontend:latest}
     container_name: frontend
+    mem_limit: 384m
     restart: unless-stopped
     networks:
       - reseat-net
@@ -157,6 +180,7 @@ services:
   nginx:
     image: nginx:1.27-alpine
     container_name: nginx
+    mem_limit: 64m
     ports:
       - "80:80"
       - "443:443"
@@ -175,6 +199,7 @@ services:
   certbot:
     image: certbot/certbot
     container_name: certbot
+    mem_limit: 32m
     volumes:
       - ./certbot/www:/var/www/certbot
       - ./certbot/conf:/etc/letsencrypt
@@ -186,8 +211,9 @@ services:
   promtail:
     image: grafana/promtail:latest
     container_name: promtail
+    mem_limit: 64m
     volumes:
-      - ./observability/promtail/promtail-config.deploy.yml:/etc/promtail/config.yml:ro
+      - ../observability/promtail/promtail-config.deploy.yml:/etc/promtail/config.yml:ro
       - ./logs:/var/log/services:ro
     environment:
       MONITORING_PRIVATE_IP: ${MONITORING_PRIVATE_IP}

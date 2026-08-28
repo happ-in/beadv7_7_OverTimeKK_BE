@@ -79,7 +79,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "docker-compose.deploy.yml,nginx,init-databases.sql,.env"
+          source: "deploy/docker-compose.deploy.yml,deploy/nginx,init-databases.sql,.env,observability/promtail"
           target: "/home/ubuntu/reseat-deploy"
           overwrite: true
 
@@ -92,7 +92,7 @@ jobs:
           script: |
             cd /home/ubuntu/reseat-deploy
             echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker compose -f docker-compose.deploy.yml --env-file .env pull
-            docker compose -f docker-compose.deploy.yml --env-file .env up -d
-            docker compose -f docker-compose.deploy.yml --env-file .env restart nginx
+            docker compose -f deploy/docker-compose.deploy.yml --env-file .env pull
+            docker compose -f deploy/docker-compose.deploy.yml --env-file .env up -d
+            docker compose -f deploy/docker-compose.deploy.yml --env-file .env restart nginx
             docker image prune -f
