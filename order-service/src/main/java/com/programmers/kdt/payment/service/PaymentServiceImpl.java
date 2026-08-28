@@ -304,7 +304,11 @@ public class PaymentServiceImpl implements PaymentService{
             if (refundRate == 0.0) {
                 failReason = PaymentErrorCode.REFUND_PERIOD_EXPIRED.toString();
             } else {
-                Long refundAmount = RefundPolicy.calculateRefundAmount(payment.getAmount(), refundRate);
+                Long usedPoint = getUsedPointForOrder(payment.getOrderId());
+
+                Long pgPaidAmount = payment.getAmount() - usedPoint;
+
+                Long refundAmount = RefundPolicy.calculateRefundAmount(pgPaidAmount, refundRate);
                 PgCancelResult cancelResult = pgClient.cancel(
                         new PgCancelCommand(payment.getPaymentKey(), refundAmount, event.reason()));
 
@@ -315,7 +319,6 @@ public class PaymentServiceImpl implements PaymentService{
                     payment.completeRefund(refundAmount);
                     refundCompleted = true;
 
-                    Long usedPoint = getUsedPointForOrder(payment.getOrderId());
                     if (usedPoint > 0) {
                         rollbackRefundPointWithRetry(payment.getOrderId(), usedPoint, refundRate, payment.getId());
                     }
