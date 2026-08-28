@@ -13,7 +13,7 @@ services:
       - --collation-server=utf8mb4_0900_ai_ci
       - --init-connect=SET NAMES utf8mb4
     volumes:
-      - ./init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
+      - ../init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
       - kdt-mysql-data:/var/lib/mysql
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
