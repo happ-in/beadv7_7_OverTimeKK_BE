@@ -97,7 +97,7 @@ jobs:
           script: |
             cd /home/ubuntu/reseat-deploy
             echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker compose -f deploy/docker-compose.deploy.yml --env-file .env pull
-            docker compose -f deploy/docker-compose.deploy.yml --env-file .env up -d
-            docker compose -f deploy/docker-compose.deploy.yml --env-file .env restart nginx
+            docker compose -p reseat-deploy -f deploy/docker-compose.deploy.yml --env-file .env pull
+            docker compose -p reseat-deploy -f deploy/docker-compose.deploy.yml --env-file .env up -d
+            docker compose -p reseat-deploy -f deploy/docker-compose.deploy.yml --env-file .env restart nginx
             docker image prune -f
