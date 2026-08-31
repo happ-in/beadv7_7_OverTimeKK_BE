@@ -8,6 +8,7 @@ import com.programmers.kdt.performance.dto.PerformanceResponse;
 import java.util.List;
 import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.performance.entity.Performance;
+import com.programmers.kdt.performance.event.PerformanceCacheEvictEvent;
 import com.programmers.kdt.performance.event.PerformanceSeatPriceCacheEvictEvent;
 import com.programmers.kdt.performance.exception.PerformanceErrorCode;
 import com.programmers.kdt.performance.repository.PerformanceRepository;
@@ -71,6 +72,7 @@ public class PerformanceService {
         performanceSessionRepository.deleteByPerformanceSessionId_PerformanceId(performanceId);
         performanceRepository.delete(performance);
         eventPublisher.publishEvent(new PerformanceSeatPriceCacheEvictEvent(performanceId, zones));
+        eventPublisher.publishEvent(new PerformanceCacheEvictEvent("performanceList", "all"));
         // TODO: order-service에 판매/주문 존재 확인 또는 취소 이벤트 발행에 대해서는 논의사항(어느정도의갚아를가져갈지)
     }
 
