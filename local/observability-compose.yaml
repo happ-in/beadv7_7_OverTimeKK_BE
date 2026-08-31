@@ -5,7 +5,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - observability-prometheus-data:/prometheus
     command:
       - --config.file=/etc/prometheus/prometheus.yml
@@ -25,8 +25,8 @@ services:
     image: grafana/promtail:latest
     container_name: kdt-promtail
     volumes:
-      - ./observability/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
-      - ./logs:/var/log/services:ro
+      - ../observability/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - ../logs:/var/log/services:ro
     command: -config.file=/etc/promtail/config.yml
     depends_on:
       - loki
@@ -39,7 +39,7 @@ services:
       - "4317:4317"   # OTLP gRPC
       - "4318:4318"   # OTLP HTTP
     volumes:
-      - ./observability/tempo/tempo.yaml:/etc/tempo.yaml:ro
+      - ../observability/tempo/tempo.yaml:/etc/tempo.yaml:ro
       - observability-tempo-data:/var/tempo
     command: -config.file=/etc/tempo.yaml
 
@@ -61,7 +61,7 @@ services:
     ports:
       - "3001:3000"
     volumes:
-      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../observability/grafana/provisioning:/etc/grafana/provisioning:ro
       - observability-grafana-data:/var/lib/grafana
     environment:
       - GF_AUTH_ANONYMOUS_ENABLED=true

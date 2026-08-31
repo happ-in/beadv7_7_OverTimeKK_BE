@@ -4,6 +4,7 @@ package com.programmers.kdt.payment.service;
 import com.programmers.kdt.common.exception.BusinessException;
 import com.programmers.kdt.common.exception.CommonErrorCode;
 import com.programmers.kdt.order.entity.Order;
+import com.programmers.kdt.order.entity.OrderStatus;
 import com.programmers.kdt.order.repository.OrderRepository;
 import com.programmers.kdt.payment.client.pay.PaymentConfirmEvent;
 import com.programmers.kdt.payment.client.pay.PaymentFailEvent;
@@ -18,6 +19,8 @@ import com.programmers.kdt.payment.exception.PaymentErrorCode;
 import com.programmers.kdt.payment.exception.PointErrorCode;
 import com.programmers.kdt.payment.repository.PaymentRefundRepository;
 import com.programmers.kdt.payment.repository.PaymentRepository;
+import com.programmers.kdt.payment.service.tx.PaymentTxOps;
+import com.programmers.kdt.payment.service.tx.PgOutcome;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -30,6 +33,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.client.RestClientException;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDate;
@@ -66,15 +70,21 @@ class PaymentServiceImplTest {
     private IdempotencyKeyService idempotencyKeyService;
     @Mock
     private ObjectMapper objectMapper;
+    @Mock
+    private PaymentTxOps paymentTxOps;
 
     private PaymentService paymentService;
 
 
+
     @BeforeEach
     void setUp() {
-        paymentService = new PaymentServiceImpl(paymentRepository, orderRepository, paymentRefundRepository, refundEventPublisher, performanceClient, orderClient, pgClient, pointService, idempotencyKeyService, objectMapper, paymentResultEventPublisher);
+        paymentService = new PaymentServiceImpl(paymentRepository, orderRepository, paymentRefundRepository, refundEventPublisher, performanceClient, orderClient, pgClient, pointService, idempotencyKeyService, objectMapper, paymentResultEventPublisher, paymentTxOps);
         lenient().when(idempotencyKeyService.generate(any(String.class), any(String.class))).thenReturn(Optional.empty());
         lenient().when(objectMapper.writeValueAsString(any())).thenReturn("{}");
+        lenient().when(orderRepository.tryStartPayment(
+                anyLong(), eq(OrderStatus.PENDING), eq(OrderStatus.PAYMENT_STARTED), any(LocalDateTime.class)
+        )).thenReturn(1);
     }
 
     @Nested
@@ -112,6 +122,53 @@ class PaymentServiceImplTest {
             assertThat(saved.getOrderId()).isEqualTo(1L);
             assertThat(saved.getUserId()).isEqualTo(1L);
             assertThat(saved.getPaymentStatus()).isEqualTo(PaymentStatus.READY);
+            verify(orderRepository).tryStartPayment(
+                    eq(1L), eq(OrderStatus.PENDING), eq(OrderStatus.PAYMENT_STARTED), any(LocalDateTime.class)
+            );
+        }
+
+        @Test
+        @DisplayName("만료 주문과의 조건부 상태 전이에 실패하면 PG를 호출하지 않는다")
+        void expiredOrderDoesNotRequestPg() {
+            Order order = mock(Order.class);
+            when(order.getOrderId()).thenReturn(1L);
+            when(order.getUserId()).thenReturn(1L);
+            when(order.getExpiresAt()).thenReturn(LocalDateTime.now().minusSeconds(1));
+            when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+            when(paymentRepository.findByOrderId(1L)).thenReturn(Optional.empty());
+            when(orderRepository.tryStartPayment(
+                    eq(1L), eq(OrderStatus.PENDING), eq(OrderStatus.PAYMENT_STARTED), any(LocalDateTime.class)
+            )).thenReturn(0);
+
+            assertThatThrownBy(() -> paymentService.pay("idem-key", request, 1L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(PaymentErrorCode.ORDER_ALREADY_EXPIRED);
+
+            verifyNoInteractions(pgClient);
+            verify(paymentRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("만료 전이 외의 상태 변경으로 결제 시작에 실패해도 PG를 호출하지 않는다")
+        void nonPendingOrderDoesNotRequestPg() {
+            Order order = mock(Order.class);
+            when(order.getOrderId()).thenReturn(1L);
+            when(order.getUserId()).thenReturn(1L);
+            when(order.getExpiresAt()).thenReturn(LocalDateTime.now().plusMinutes(1));
+            when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+            when(paymentRepository.findByOrderId(1L)).thenReturn(Optional.empty());
+            when(orderRepository.tryStartPayment(
+                    eq(1L), eq(OrderStatus.PENDING), eq(OrderStatus.PAYMENT_STARTED), any(LocalDateTime.class)
+            )).thenReturn(0);
+
+            assertThatThrownBy(() -> paymentService.pay("idem-key", request, 1L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(PaymentErrorCode.ORDER_NOT_PENDING);
+
+            verifyNoInteractions(pgClient);
+            verify(paymentRepository, never()).save(any());
         }
 
         @Test
@@ -316,12 +373,23 @@ class PaymentServiceImplTest {
         void setUp() {
             payment = Payment.create(1L, 100L, 10000L);
             payment.assignPaymentKey("PG_KEY_123");
+            ReflectionTestUtils.setField(payment, "id", 1L);
         }
 
         @Test
         @DisplayName("PG 승인이 성공하면 결제 상태가 PAID로 바뀐다.")
         void confirmSuccess() {
-            when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
+            when(paymentTxOps.assignKeyAndCommit(eq(1L), any()))
+                    .thenAnswer(inv -> {
+                        payment.markPending();
+                        return payment;
+                    });
+            when(paymentTxOps.applyConfirmResult(eq(1L), eq(PgOutcome.SUCCESS)))
+                    .thenAnswer(inv -> {
+                        payment.confirmVerifiedSuccess();
+                        return payment;
+                    });
+
 
             PgApproveResult approveResult = mock(PgApproveResult.class);
             when(approveResult.success()).thenReturn(true);
@@ -337,7 +405,17 @@ class PaymentServiceImplTest {
         @Test
         @DisplayName("PG 승인이 실패하면 결제 상태가 FAILED로 바뀐다.")
         void confirmFailure() {
-            when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
+            when(paymentTxOps.assignKeyAndCommit(eq(1L), any()))
+                    .thenAnswer(inv -> {
+                        payment.markPending();
+                        return payment;
+                    });
+            when(paymentTxOps.applyConfirmResult(eq(1L), eq(PgOutcome.EXPLICIT_FAIL)))
+                    .thenAnswer(inv -> {
+                        payment.confirmVerifiedFail();
+                        return payment;
+                    });
+
 
             PgApproveResult approveResult = mock(PgApproveResult.class);
             when(approveResult.success()).thenReturn(false);
@@ -356,7 +434,8 @@ class PaymentServiceImplTest {
         @Test
         @DisplayName("결제를 찾을 수 없으면 예외가 발생한다.")
         void confirmPaymentNotFound() {
-            when(paymentRepository.findById(1L)).thenReturn(Optional.empty());
+            when(paymentTxOps.assignKeyAndCommit(eq(1L), any()))
+                    .thenThrow(new BusinessException(PaymentErrorCode.PAYMENT_NOT_FOUND));
 
             assertThatThrownBy(() -> paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123"), "idem-key", 100L))
                     .isInstanceOf(BusinessException.class)
@@ -371,9 +450,8 @@ class PaymentServiceImplTest {
         @Test
         @DisplayName("READY 상태가 아니면 예외가 발생하고 PG 승인 요청은 나가지 않는다.")
         void confirmInvalidStatus() {
-            payment.approve();
-
-            when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
+            when(paymentTxOps.assignKeyAndCommit(eq(1L), any()))
+                    .thenThrow(new BusinessException(PaymentErrorCode.INVALID_PAYMENT_STATUS, PaymentStatus.PAID));
 
             assertThatThrownBy(() -> paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123"), "idem-key", 100L))
                     .isInstanceOf(BusinessException.class)
@@ -385,24 +463,78 @@ class PaymentServiceImplTest {
         }
 
         @Test
-        @DisplayName("PG 승인 요청이 실패하면 예외가 발생하고 상태는 변경되지 않는다.")
-        void confirmPgRequestFailed() {
-            when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
-            when(pgClient.approve(any())).thenThrow(new BusinessException(PaymentErrorCode.PG_REQUEST_FAILED));
+        @DisplayName("PG사가 승인을 거절하면 결제 상태가 FAILED로 바뀐다.")
+        void confirmPgClientExceptionMarksFailed() {
+            when(paymentTxOps.assignKeyAndCommit(eq(1L), any()))
+                    .thenAnswer(inv -> {
+                        payment.markPending();
+                        return payment;
+                    });
+            when(paymentTxOps.applyConfirmResult(eq(1L), eq(PgOutcome.EXPLICIT_FAIL)))
+                    .thenAnswer(inv -> {
+                        payment.confirmVerifiedFail();
+                        return payment;
+                    });
+            when(pgClient.approve(any())).thenThrow(new PgClientException("PG_DENIED", "거절"));
+
+            paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123"), "idem-key", 100L);
+
+            assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.FAILED);
+            verify(paymentResultEventPublisher).publishFailed(any());
+
+        }
+
+        @Test
+        @DisplayName("PG 응답이 없으면(타임 아웃) 예외 없이 재조회 대상 상태로 남는다.")
+        void confirmPgTimeoutStaysAmbiguousForReconciliation() {
+            when(paymentTxOps.assignKeyAndCommit(eq(1L), any()))
+                    .thenAnswer(inv -> {
+                        payment.markPending();
+                        return payment;
+                    });
+            when(paymentTxOps.applyConfirmResult(eq(1L), eq(PgOutcome.AMBIGUOUS))).thenReturn(payment);
+            when(paymentTxOps.applyReconcileResult(eq(1L), eq(PgOutcome.AMBIGUOUS))).thenReturn(payment);
+            when(pgClient.approve(any())).thenThrow(new RestClientException("timeout"));
+
+            ConfirmPaymentResponse response = paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123"), "idem-key", 100L);
+
+            assertThat(response).isNotNull();
+            assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.CONFIRM_PENDING_VERIFICATION);
+
+            verifyNoInteractions(paymentResultEventPublisher);
+            verify(paymentTxOps).applyReconcileResult(eq(1L), eq(PgOutcome.AMBIGUOUS));
+        }
+
+        @Test
+        @DisplayName("PG 승인 호출에서 처리되지 않는 예외가 발생하면 tx2를 타지 않고 예외가 그대로 전파되며, 결제는 재조회 대상 상태로 남는다.")
+        void confirmUnexpectedExceptionSkipsTx2AndPropagates() {
+            when(paymentTxOps.assignKeyAndCommit(eq(1L), any()))
+                    .thenAnswer(inv -> { payment.markPending(); return payment; });
+            when(pgClient.approve(any())).thenThrow(new NullPointerException("PG 응답 파싱 실패"));
 
             assertThatThrownBy(() -> paymentService.confirm(1L, new ConfirmPaymentRequest("PG_KEY_123"), "idem-key", 100L))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting(e -> ((BusinessException) e).getErrorCode())
-                    .isEqualTo(PaymentErrorCode.PG_REQUEST_FAILED);
+                    .isInstanceOf(NullPointerException.class);
 
-            assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.READY);
+            assertThat(payment.getPaymentStatus()).isEqualTo(PaymentStatus.CONFIRM_PENDING_VERIFICATION);
+            verify(paymentTxOps, never()).applyConfirmResult(anyLong(), any());
             verifyNoInteractions(paymentResultEventPublisher);
+            verify(idempotencyKeyService).release("CONFIRM:idem-key");
         }
 
         @Test
         @DisplayName("포인트를 사용한 결제가 승인되면 PG 승인 금액에서 포인트만큼 차감되고, 포인트는 다시 건드리지 않는다.")
         void confirmSuccessWithPoint() {
-            when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
+            when(paymentTxOps.assignKeyAndCommit(eq(1L), any()))
+                    .thenAnswer(inv -> {
+                        payment.markPending();
+                        return payment;
+                    });
+            when(paymentTxOps.applyConfirmResult(eq(1L), eq(PgOutcome.SUCCESS)))
+                    .thenAnswer(inv -> {
+                        payment.confirmVerifiedSuccess();
+                        return payment;
+                    });
+
             when(pointService.findUsedAmount("ORDER:1:POINT_USE")).thenReturn(3000L);
 
             PgApproveResult approveResult = mock(PgApproveResult.class);
@@ -421,7 +553,10 @@ class PaymentServiceImplTest {
         @Test
         @DisplayName("포인트를 사용한 결제의 승인이 실패하면 사용했던 포인트만큼 롤백된다.")
         void confirmFailureWithPoint() {
-            when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
+            when(paymentTxOps.assignKeyAndCommit(eq(1L), any()))
+                    .thenAnswer(inv -> { payment.markPending(); return payment; });
+            when(paymentTxOps.applyConfirmResult(eq(1L), eq(PgOutcome.EXPLICIT_FAIL)))
+                    .thenAnswer(inv -> { payment.confirmVerifiedFail(); return payment; });
             when(pointService.findUsedAmount("ORDER:1:POINT_USE")).thenReturn(3000L);
 
             PgApproveResult approveResult = mock(PgApproveResult.class);
@@ -437,7 +572,10 @@ class PaymentServiceImplTest {
         @Test
         @DisplayName("포인트를 사용하지 않은 결제의 승인이 실패하면 포인트 롤백은 호출되지 않는다.")
         void confirmFailureWithoutPoint() {
-            when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
+            when(paymentTxOps.assignKeyAndCommit(eq(1L), any()))
+                    .thenAnswer(inv -> { payment.markPending(); return payment; });
+            when(paymentTxOps.applyConfirmResult(eq(1L), eq(PgOutcome.EXPLICIT_FAIL)))
+                    .thenAnswer(inv -> { payment.confirmVerifiedFail(); return payment; });
 
             PgApproveResult approveResult = mock(PgApproveResult.class);
             when(approveResult.success()).thenReturn(false);
@@ -451,7 +589,10 @@ class PaymentServiceImplTest {
         @Test
         @DisplayName("PG 승인이 성공하면 PaymentConfirmEvent가 발생한다.")
         void confirmSuccessPublishesOrderCompletionEvent() {
-            when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
+            when(paymentTxOps.assignKeyAndCommit(eq(1L), any()))
+                    .thenAnswer(inv -> { payment.markPending(); return payment; });
+            when(paymentTxOps.applyConfirmResult(eq(1L), any()))
+                    .thenAnswer(inv -> { payment.confirmVerifiedSuccess(); return payment; });
 
             PgApproveResult approveResult = mock(PgApproveResult.class);
             when(approveResult.success()).thenReturn(true);

@@ -13,7 +13,7 @@ services:
       - --collation-server=utf8mb4_0900_ai_ci
       - --init-connect=SET NAMES utf8mb4
     volumes:
-      - ./init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
+      - ../init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
       - kdt-mysql-data:/var/lib/mysql
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
@@ -36,6 +36,42 @@ services:
       timeout: 3s
       retries: 10
 
+  elasticsearch:
+    build:
+      context: ../deploy/elasticsearch   # 배포용 nori Dockerfile 재사용 - 로컬도 같은 이미지로 검증
+      dockerfile: Dockerfile
+    container_name: kdt-elasticsearch
+    ports:
+      - "9200:9200"
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - kdt-es-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:9.4.2
+    container_name: kdt-kibana
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+
 volumes:
   kdt-mysql-data:
   kdt-redis-data:
+  kdt-es-data:

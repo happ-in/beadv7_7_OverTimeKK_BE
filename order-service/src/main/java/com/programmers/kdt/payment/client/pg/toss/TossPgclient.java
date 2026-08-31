@@ -23,7 +23,7 @@ public class TossPgclient implements PgClient {
     public TossPgclient(@Value("${toss.secret-key}") String secretKey) {
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(Duration.ofSeconds(3));
-        requestFactory.setReadTimeout(Duration.ofSeconds(10));
+        requestFactory.setReadTimeout(Duration.ofSeconds(30));
 
         String encoded = Base64.getEncoder().encodeToString(((secretKey) + ":").getBytes());
         this.restClient = RestClient.builder()
@@ -86,6 +86,25 @@ public class TossPgclient implements PgClient {
             }
 
             return new PgCancelResult(success, canceledAt);
+        } catch (RestClientResponseException e) {
+            TossErrorResponse error = e.getResponseBodyAs(TossErrorResponse.class);
+            throw new PgClientException(error.code(), error.message());
+        }
+    }
+
+    @Override
+    public PgApproveResult select(String paymentKey) {
+        try {
+            TossConfirmResponse response = restClient.get()
+                    .uri("/v1/payments/{paymentKey}", paymentKey)
+                    .retrieve()
+                    .body(TossConfirmResponse.class);
+
+            boolean success = "DONE".equals(response.status());
+            LocalDateTime approvedAt = success
+                    ? OffsetDateTime.parse(response.approvedAt()).toLocalDateTime()
+                    : LocalDateTime.now();
+            return new PgApproveResult(success, approvedAt);
         } catch (RestClientResponseException e) {
             TossErrorResponse error = e.getResponseBodyAs(TossErrorResponse.class);
             throw new PgClientException(error.code(), error.message());

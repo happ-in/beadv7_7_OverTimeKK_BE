@@ -6,16 +6,19 @@ import com.programmers.kdt.common.response.ApiResponse;
 import com.programmers.kdt.performance.dto.EndedTicketsResponse;
 import com.programmers.kdt.performance.dto.FindPerformancesResponse;
 import com.programmers.kdt.performance.dto.PerformanceSessionSeatResponse;
+import com.programmers.kdt.performance.dto.SellerPerformanceResponse;
 import com.programmers.kdt.performance.entity.PerformanceStatus;
 import com.programmers.kdt.performance.service.FindPerformanceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/performances")
@@ -52,6 +55,18 @@ public class FindPerformanceController {
     @GetMapping("/{performanceId}/sessions/seats")
     public ApiResponse<PerformanceSessionSeatResponse> findPerformanceSessionSeats(@PathVariable Long performanceId) {
         PerformanceSessionSeatResponse response = findPerformanceService.findPerformanceSessionSeats(performanceId);
+        return ApiResponse.success(response);
+    }
+
+    @GetMapping("/seller")
+    public ApiResponse<List<SellerPerformanceResponse>> findSellerPerformances(@RequestHeader("X-User-Id") Long sellerId) {
+        List<SellerPerformanceResponse> response = findPerformanceService.findSellerPerformances(sellerId);
+        return ApiResponse.success(response);
+    }
+
+    @GetMapping("/search")
+    public ApiResponse<FindPerformancesResponse> searchPerformancesByTitle(@RequestParam("title") String title) {
+        FindPerformancesResponse response = findPerformanceService.searchPerformancesByTitle(title);
         return ApiResponse.success(response);
     }
 }

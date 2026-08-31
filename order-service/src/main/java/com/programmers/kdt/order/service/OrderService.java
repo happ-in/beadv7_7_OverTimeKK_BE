@@ -2,6 +2,7 @@ package com.programmers.kdt.order.service;
 
 import com.programmers.kdt.order.dto.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface OrderService {
@@ -13,10 +14,7 @@ public interface OrderService {
     void completeOrder(Long orderId);
 
     // 주문 만료
-    void expireOrders();
-
-    // 주문 만료 조회
-    void startPayment(Long orderId);
+    void expireOrder(Long orderId, LocalDateTime now);
 
     // 주문 취소
     CancelOrderResponse cancelCompletedOrder(Long orderId, Long userId, CancelOrderRequest request);

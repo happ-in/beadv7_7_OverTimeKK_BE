@@ -14,10 +14,12 @@ import com.programmers.kdt.order.dto.ValidateTicketRequest;
 import com.programmers.kdt.order.entity.Order;
 import com.programmers.kdt.order.entity.OrderItem;
 import com.programmers.kdt.order.entity.OrderStatus;
+import com.programmers.kdt.order.entity.TicketCancelJob;
 import com.programmers.kdt.order.event.TicketCancelRequestEvent;
 import com.programmers.kdt.order.event.TicketReleaseRequestEvent;
 import com.programmers.kdt.order.exception.OrderErrorCode;
 import com.programmers.kdt.order.repository.OrderRepository;
+import com.programmers.kdt.order.repository.TicketCancelJobRepository;
 import com.programmers.kdt.payment.dto.RefundPaymentRequest;
 import com.programmers.kdt.payment.service.PaymentService;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +38,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
     private final OrderRepository orderRepository;
+    private final TicketCancelJobRepository ticketCancelJobRepository;
     private final TicketClient ticketClient;
     private final PaymentService paymentService;
     private final ApplicationEventPublisher eventPublisher;
@@ -95,26 +98,19 @@ public class OrderServiceImpl implements OrderService {
     // 주문 만료
     @Override
     @Transactional
-    public void expireOrders(){
-        LocalDateTime now = LocalDateTime.now();
-
-        List<Order> orders = orderRepository.findAllByOrderStatusAndExpiresAtLessThanEqual(
+    public void expireOrder(Long orderId, LocalDateTime now){
+        int updatedRow = orderRepository.tryExpire(
+                orderId,
                 OrderStatus.PENDING,
+                OrderStatus.EXPIRED,
                 now
         );
-        for(Order order : orders){
-            order.expire();
-            publishTicketReleaseEvent(order);
+        if(updatedRow == 0){
+            return;
         }
-    }
 
-    // 주문 만료 조회 -- 결제 생성 API 클릭 시 호출
-    @Override
-    @Transactional
-    public void startPayment(Long orderId) {
         Order order = findOrder(orderId);
-
-        order.startPayment(LocalDateTime.now());
+        publishTicketReleaseEvent(order);
     }
 
     // 결제 후 주문 취소
@@ -149,6 +145,9 @@ public class OrderServiceImpl implements OrderService {
     public void confirmCancellation(Long orderId) {
         Order order = findOrderForUpdate(orderId);
         if (order.confirmCancel()) {
+            ticketCancelJobRepository.save(
+                    TicketCancelJob.create(order.getOrderId(), order.getTicketId(), order.getUserId())
+            );
             publishTicketCancelEvent(order);
         }
     }

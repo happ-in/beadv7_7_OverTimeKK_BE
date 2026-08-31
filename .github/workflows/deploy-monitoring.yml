@@ -7,7 +7,7 @@ on:
     branches: [main]
     paths:
       - "observability/**"
-      - "observability-compose.deploy.yaml"
+      - "deploy/observability-compose.deploy.yaml"
       - ".github/workflows/deploy-monitoring.yml"
   workflow_dispatch:
 
@@ -36,7 +36,7 @@ jobs:
           host: ${{ secrets.MONITORING_HOST }}
           username: ${{ secrets.MONITORING_USER }}
           key: ${{ secrets.MONITORING_SSH_KEY }}
-          source: "observability-compose.deploy.yaml,observability,.env"
+          source: "deploy/observability-compose.deploy.yaml,observability,.env"
           target: "/home/ubuntu/reseat-monitoring-deploy"
           overwrite: true
 
@@ -48,6 +48,6 @@ jobs:
           key: ${{ secrets.MONITORING_SSH_KEY }}
           script: |
             cd /home/ubuntu/reseat-monitoring-deploy
-            docker compose -f observability-compose.deploy.yaml --env-file .env pull
-            docker compose -f observability-compose.deploy.yaml --env-file .env up -d
+            docker compose -p reseat-monitoring-deploy -f deploy/observability-compose.deploy.yaml --env-file .env pull
+            docker compose -p reseat-monitoring-deploy -f deploy/observability-compose.deploy.yaml --env-file .env up -d
             docker image prune -f

@@ -17,7 +17,7 @@ public class PaymentConfirmEventListener {
 
     private final OrderService orderService;
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handle(PaymentConfirmEvent event){
         log.info("결제 완료 이벤트 수신: orderId={}", event.orderId());
