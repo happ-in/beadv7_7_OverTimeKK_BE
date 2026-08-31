@@ -46,6 +46,55 @@ services:
       - reseat-net
     # user-service의 refresh token 저장용. 호스트로 노출 안 함 - 내부 네트워크로만 접근
 
+  elasticsearch:
+    image: ghcr.io/${GHCR_OWNER}/elasticsearch-nori:latest
+    container_name: reseat-elasticsearch
+    mem_limit: 1g
+    environment:
+      TZ: Asia/Seoul
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - reseat-es-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - reseat-net
+    # 인증 비활성화 - redis처럼 내부망(reseat-net) 전용, 호스트 포트 노출 안 함
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:9.4.2
+    container_name: reseat-kibana
+    mem_limit: 512m
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Seoul
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:5601/api/status || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - reseat-net
+    ports:
+      - "127.0.0.1:5601:5601"
+    # db처럼 SSH 터널로만 접근 - ES 인증이 없어서 공개 노출 안 함
+
   user-service:
     image: ghcr.io/${GHCR_OWNER}/user-service:${IMAGE_TAG:-latest}
     container_name: user-service
@@ -119,11 +168,14 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
     environment:
       TZ: Asia/Seoul
       SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/reseat?useUnicode=true&characterEncoding=UTF-8&connectionCollation=utf8mb4_0900_ai_ci&serverTimezone=Asia/Seoul
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
+      SPRING_ELASTICSEARCH_URIS: http://elasticsearch:9200
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       ORDER_SERVICE_URL: http://order-service:8082
@@ -229,3 +281,4 @@ networks:
 
 volumes:
   reseat-mysql-data:
+  reseat-es-data:

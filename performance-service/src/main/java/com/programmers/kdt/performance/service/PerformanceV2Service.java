@@ -4,6 +4,7 @@ import com.programmers.kdt.performance.dto.RegisterPerformanceRequest;
 import com.programmers.kdt.performance.entity.Performance;
 import com.programmers.kdt.performance.entity.PerformanceStatus;
 import com.programmers.kdt.performance.event.PerformanceCacheEvictEvent;
+import com.programmers.kdt.performance.event.PerformanceDocumentSaveEvent;
 import com.programmers.kdt.performance.event.PerformanceSeatPriceRegisterEvent;
 import com.programmers.kdt.performance.event.PerformanceSessionRegisterEvent;
 import com.programmers.kdt.performance.repository.PerformanceRepository;
@@ -39,6 +40,9 @@ public class PerformanceV2Service {
 
         // 5. Ticket
         publisher.publishEvent(new TicketIssueEvent(performance.getPerformanceId(), TicketStatus.AVAILABLE));
+
+        // 6. 검색용 문서 저장 (커밋 성공 후에만 색인)
+        publisher.publishEvent(new PerformanceDocumentSaveEvent(performance));
     }
 
     @Transactional

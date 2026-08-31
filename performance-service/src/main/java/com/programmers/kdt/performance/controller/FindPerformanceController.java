@@ -63,4 +63,10 @@ public class FindPerformanceController {
         List<SellerPerformanceResponse> response = findPerformanceService.findSellerPerformances(sellerId);
         return ApiResponse.success(response);
     }
+
+    @GetMapping("/search")
+    public ApiResponse<FindPerformancesResponse> searchPerformancesByTitle(@RequestParam("title") String title) {
+        FindPerformancesResponse response = findPerformanceService.searchPerformancesByTitle(title);
+        return ApiResponse.success(response);
+    }
 }

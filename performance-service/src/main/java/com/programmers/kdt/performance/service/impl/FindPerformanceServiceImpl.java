@@ -16,6 +16,8 @@ import com.programmers.kdt.performance.entity.PerformanceStatus;
 import com.programmers.kdt.performance.exception.PerformanceErrorCode;
 import com.programmers.kdt.performance.repository.PerformanceRepository;
 import com.programmers.kdt.performance.service.FindPerformanceService;
+import com.programmers.kdt.search.PerformanceDocument;
+import com.programmers.kdt.search.PerformanceSearchRepository;
 import com.programmers.kdt.venue.entity.Hall;
 import com.programmers.kdt.venue.exception.VenueErrorCode;
 import com.programmers.kdt.venue.repository.HallRepository;
@@ -32,7 +34,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -40,6 +45,7 @@ import java.util.List;
 public class FindPerformanceServiceImpl implements FindPerformanceService {
 
     private final PerformanceRepository performanceRepository;
+    private final PerformanceSearchRepository performanceSearchRepository;
     private final HallRepository hallRepository;
     private final S3ImageService imageService;
 
@@ -92,6 +98,30 @@ public class FindPerformanceServiceImpl implements FindPerformanceService {
         return performanceRepository.findSellerPerformances(sellerId);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public FindPerformancesResponse searchPerformancesByTitle(String title) {
+        List<PerformanceDocument> documents = performanceSearchRepository.findTop8ByTitle(title);
+        if (documents.isEmpty()) {
+            throw new BusinessException(PerformanceErrorCode.FIND_PERFORMANCES_NO_RESULT);
+        }
+
+        List<Long> performanceIds = documents.stream()
+                .map(PerformanceDocument::getPerformanceId)
+                .toList();
+
+        Map<Long, Performance> performancesById = new LinkedHashMap<>();
+        performanceRepository.findAllById(performanceIds).forEach(performance ->
+                performancesById.put(performance.getPerformanceId(), performance));
+
+        List<Performance> performances = performanceIds.stream()
+                .map(performancesById::get)
+                .filter(Objects::nonNull)
+                .toList();
+
+        return new FindPerformancesResponse(1L, convertToResponse(performances));
+    }
+
     private Page<Performance> findPerformances(PerformanceStatus status, Pageable pageable) {
         if (status == null ) {
             return performanceRepository.findAll(pageable);
@@ -99,7 +129,7 @@ public class FindPerformanceServiceImpl implements FindPerformanceService {
         return performanceRepository.findByPerformanceStatus(status, pageable);
     }
 
-    private @NonNull List<FindPerformanceDto> convertToResponse(Page<Performance> performances) {
+    private @NonNull List<FindPerformanceDto> convertToResponse(Iterable<Performance> performances) {
         List<FindPerformanceDto> responses = new ArrayList<>();
         for (Performance performance : performances) {
             Hall hall = hallRepository.findById(performance.getHallId())

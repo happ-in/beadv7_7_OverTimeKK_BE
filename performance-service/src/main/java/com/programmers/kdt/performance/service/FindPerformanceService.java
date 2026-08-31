@@ -19,4 +19,6 @@ public interface FindPerformanceService {
     PerformanceSessionSeatResponse findPerformanceSessionSeats(Long performanceId);
 
     List<SellerPerformanceResponse> findSellerPerformances(Long sellerId);
+
+    FindPerformancesResponse searchPerformancesByTitle(String title);
 }

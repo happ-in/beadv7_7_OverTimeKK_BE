@@ -1,0 +1,26 @@
+{
+  "analysis" : {
+    "tokenizer": {
+      "korean_tokenizer": {
+        "type": "nori_tokenizer",
+        "decompound_mode": "mixed"
+      },
+      "korean_search_tokenizer": {
+        "type": "nori_tokenizer",
+        "decompound_mode": "discard"
+      }
+    },
+    "analyzer": {
+      "korean_index": {
+        "type": "custom",
+        "tokenizer": "korean_tokenizer",
+        "filter": ["nori_part_of_speech", "lowercase"]
+      },
+      "korean_search": {
+        "type": "custom",
+        "tokenizer": "korean_search_tokenizer",
+        "filter": ["nori_part_of_speech", "lowercase"]
+      }
+    }
+  }
+}
